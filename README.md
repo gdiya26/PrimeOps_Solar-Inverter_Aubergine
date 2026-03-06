@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
   # Create UI from File
 
@@ -9,3 +10,7 @@
 
   Run `npm run dev` to start the development server.
   
+=======
+# PrimeOps_Solar-Inverter_Aubergine
+Solar Inverter Failure Pediction and Intelligence Platform
+>>>>>>> 7a4f235e2fc3e1fbb5a26c635a9a82ed7deca4ab
