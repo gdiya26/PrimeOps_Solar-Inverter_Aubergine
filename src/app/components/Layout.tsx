@@ -18,6 +18,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import NotificationCenter from './NotificationCenter';
 import FloatingChatbot from './FloatingChatbot';
+import { useBlock } from '../contexts/BlockContext';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -34,6 +35,7 @@ export default function Layout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
+  const { activeBlock, setActiveBlock } = useBlock();
 
   return (
     <div className="min-h-screen bg-[#0E1117] text-white">
@@ -122,7 +124,7 @@ export default function Layout() {
                 <p className="text-sm font-medium">Just now</p>
               </div>
               <NotificationCenter />
-
+              
               <div className="relative">
                 <button
                   onClick={() => setProfileOpen(!profileOpen)}
@@ -163,6 +165,25 @@ export default function Layout() {
               </div>
             </div>
           </div>
+          
+          {/* Block Selection Tabs */}
+          {location.pathname !== '/chatbot' && (
+            <div className="px-6 py-2 bg-[#0E1117] flex gap-4 overflow-x-auto no-scrollbar border-b border-gray-800">
+               {['All', 'A', 'B', 'C', 'D', 'E', 'F'].map((blockName) => (
+                  <button
+                      key={blockName}
+                      onClick={() => setActiveBlock(blockName as 'All' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F')}
+                      className={`px-4 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                        activeBlock === blockName 
+                          ? 'bg-[#FFC107] text-black' 
+                          : 'bg-[#1A1D29] text-gray-400 hover:text-white hover:bg-gray-800'
+                      }`}
+                  >
+                      {blockName === 'All' ? 'All Blocks' : `Block ${blockName}`}
+                  </button>
+               ))}
+            </div>
+          )}
         </header>
 
         {/* Page Content */}

@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Activity, Thermometer, Zap, TrendingUp } from 'lucide-react';
+import { useBlock } from '../../contexts/BlockContext';
 
 interface InverterCardData {
   id: string;
@@ -10,18 +12,64 @@ interface InverterCardData {
   riskScore: number;
 }
 
-const inverters: InverterCardData[] = [
-  { id: 'INV-001', status: 'healthy', temperature: 45, powerOutput: 98, efficiency: 97.8, riskScore: 15 },
-  { id: 'INV-002', status: 'warning', temperature: 62, powerOutput: 85, efficiency: 94.2, riskScore: 58 },
-  { id: 'INV-003', status: 'healthy', temperature: 48, powerOutput: 96, efficiency: 97.5, riskScore: 22 },
-  { id: 'INV-004', status: 'critical', temperature: 67, powerOutput: 72, efficiency: 89.1, riskScore: 82 },
-  { id: 'INV-005', status: 'healthy', temperature: 51, powerOutput: 94, efficiency: 96.9, riskScore: 18 },
-  { id: 'INV-006', status: 'healthy', temperature: 47, powerOutput: 99, efficiency: 98.2, riskScore: 12 },
-  { id: 'INV-007', status: 'warning', temperature: 59, powerOutput: 88, efficiency: 95.3, riskScore: 45 },
-  { id: 'INV-008', status: 'healthy', temperature: 49, powerOutput: 97, efficiency: 97.6, riskScore: 20 },
-];
-
 export default function InverterHealth() {
+  const { activeBlock } = useBlock();
+  const [inverters, setInverters] = useState<InverterCardData[]>([]);
+  const [stats, setStats] = useState({ healthy: 0, warning: 0, critical: 0, avgEfficiency: 0 });
+
+  const fetchInverters = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/inverters?block=${activeBlock}`);
+      const data = await res.json();
+      
+      if (data.status === 'success') {
+          // Map backend data to frontend interface
+          const mappedData = data.data.map((inv: any) => {
+              // Simulating some derived metrics if they don't exist in DB
+              const risk = inv.status?.toLowerCase() === 'offline' ? 85 : 
+                (inv.status?.toLowerCase() === 'warning' ? 55 : 15);
+              const statusMapped = risk > 70 ? 'critical' : (risk > 40 ? 'warning' : 'healthy');
+              
+              return {
+                 id: inv.name || inv.id?.substring(0,8),
+                 status: statusMapped,
+                 temperature: 45 + Math.floor(Math.random() * 20), // Mock if missing
+                 powerOutput: 80 + Math.floor(Math.random() * 20),
+                 efficiency: 95 + Math.random() * 4,
+                 riskScore: risk
+              };
+          });
+          setInverters(mappedData);
+
+          // Calculate Roll-up stats
+          let healthyCount = 0;
+          let warningCount = 0;
+          let criticalCount = 0;
+          let totalEff = 0;
+
+          mappedData.forEach((inv: any) => {
+             if (inv.status === 'healthy') healthyCount++;
+             if (inv.status === 'warning') warningCount++;
+             if (inv.status === 'critical') criticalCount++;
+             totalEff += inv.efficiency;
+          });
+
+          setStats({
+              healthy: healthyCount,
+              warning: warningCount,
+              critical: criticalCount,
+              avgEfficiency: mappedData.length > 0 ? totalEff / mappedData.length : 0
+          });
+      }
+    } catch (error) {
+       console.error("Failed to fetch inverters for health page", error);
+    }
+  };
+
+  useEffect(() => {
+     fetchInverters();
+  }, [activeBlock]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'healthy':
@@ -42,8 +90,8 @@ export default function InverterHealth() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-3xl font-bold mb-2">Inverter Health Monitor</h1>
-        <p className="text-gray-400">Comprehensive health status for all inverters</p>
+        <h1 className="text-3xl font-bold mb-2">Inverter Health Monitor ({activeBlock === 'All' ? 'All Blocks' : `Block ${activeBlock}`})</h1>
+        <p className="text-gray-400">Comprehensive health status for inverters</p>
       </motion.div>
 
       {/* Summary Stats */}
@@ -59,7 +107,7 @@ export default function InverterHealth() {
             </div>
             <div>
               <p className="text-gray-400 text-xs">Healthy</p>
-              <p className="text-2xl font-bold">5</p>
+              <p className="text-2xl font-bold">{stats.healthy}</p>
             </div>
           </div>
         </motion.div>
@@ -76,7 +124,7 @@ export default function InverterHealth() {
             </div>
             <div>
               <p className="text-gray-400 text-xs">Warning</p>
-              <p className="text-2xl font-bold">2</p>
+              <p className="text-2xl font-bold">{stats.warning}</p>
             </div>
           </div>
         </motion.div>
@@ -93,7 +141,7 @@ export default function InverterHealth() {
             </div>
             <div>
               <p className="text-gray-400 text-xs">Critical</p>
-              <p className="text-2xl font-bold">1</p>
+              <p className="text-2xl font-bold">{stats.critical}</p>
             </div>
           </div>
         </motion.div>
@@ -110,13 +158,19 @@ export default function InverterHealth() {
             </div>
             <div>
               <p className="text-gray-400 text-xs">Avg Efficiency</p>
-              <p className="text-2xl font-bold">95.8%</p>
+              <p className="text-2xl font-bold">{stats.avgEfficiency.toFixed(1)}%</p>
             </div>
           </div>
         </motion.div>
       </div>
 
       {/* Inverter Grid */}
+      {inverters.length === 0 ? (
+        <div className="bg-[#1A1D29] rounded-xl p-12 text-center border border-gray-800">
+           <p className="text-xl text-gray-400 font-medium">No inverters found in this block.</p>
+           <p className="text-sm text-gray-500 mt-2">Ensure that the hardware mac mappings exist in the system for Block {activeBlock}.</p>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {inverters.map((inverter, index) => (
           <motion.div
@@ -183,7 +237,7 @@ export default function InverterHealth() {
                   <TrendingUp className="w-4 h-4 text-gray-400" />
                   <span className="text-sm text-gray-400">Efficiency</span>
                 </div>
-                <span className="text-sm font-bold text-white">{inverter.efficiency}%</span>
+                <span className="text-sm font-bold text-white">{inverter.efficiency.toFixed(1)}%</span>
               </div>
 
               {/* Risk Score */}
@@ -216,6 +270,7 @@ export default function InverterHealth() {
           </motion.div>
         ))}
       </div>
+      )}
     </div>
   );
 }

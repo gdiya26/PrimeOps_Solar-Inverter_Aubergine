@@ -11,5 +11,7 @@ router.get('/health', (req, res) => {
 // Mount modular sub-routes
 router.use('/api/inverters', require('./inverterRoutes'));
 router.use('/api/alerts', require('./alertRoutes'));
+router.use('/api/stats', require('./statsRoutes'));
+router.use('/api/chat', require('./chatRoutes'));
 
 module.exports = router;

@@ -7,41 +7,66 @@ import RealTimeCharts from '../RealTimeCharts';
 import AIFailurePrediction from '../AIFailurePrediction';
 import AIDiagnosticInsights from '../AIDiagnosticInsights';
 import AIPredictiveTimeline from '../AIPredictiveTimeline';
+import { useBlock } from '../../contexts/BlockContext';
 
 export default function Dashboard() {
+  const { activeBlock } = useBlock();
   const [selectedInverter, setSelectedInverter] = useState<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [inverterCount, setInverterCount] = useState(0);
   const [onlineCount, setOnlineCount] = useState(0);
   const [criticalAlerts, setCriticalAlerts] = useState(0);
+  const [totalPowerDisplay, setTotalPowerDisplay] = useState('—');
 
   const fetchDashboardData = async () => {
     setIsRefreshing(true);
     try {
-      // Fetch Inverters
-      const invRes = await fetch('http://localhost:5000/api/inverters');
-      const invData = await invRes.json();
-      if (invData.status === 'success') {
-        const inverters = invData.data;
-        setInverterCount(inverters.length);
-        setOnlineCount(inverters.filter((i: any) => i.status === 'online').length);
+      const statsRes = await fetch(`http://localhost:5000/api/stats?block=${activeBlock}`);
+      if (!statsRes.ok) {
+        console.error(`Stats API error: ${statsRes.status} ${statsRes.statusText}`);
+        setIsLoading(false);
+        setIsRefreshing(false);
+        return;
       }
+      const statsData = await statsRes.json();
+      console.log('Stats response:', statsData);
+      
+      if (statsData.status === 'success') {
+          const { totalInverters, activeInverters, criticalAlerts: cAlerts, totalPowerToday } = statsData.data;
+          setInverterCount(totalInverters ?? 0);
+          setOnlineCount(activeInverters ?? 0);
+          setCriticalAlerts(cAlerts ?? 0);
+          setTotalPowerDisplay(typeof totalPowerToday === 'number' ? totalPowerToday.toFixed(1) : '0.0');
+      } else {
+        console.warn('Stats endpoint returned non-success, falling back to individual endpoints');
+        const invRes = await fetch(`http://localhost:5000/api/inverters?block=${activeBlock}`);
+        const invData = await invRes.json();
+        console.log('Inverters fallback response:', invData);
+        if (invData.status === 'success') {
+          const inverters = invData.data;
+          setInverterCount(inverters.length);
+          setOnlineCount(inverters.filter((i: any) => i.status?.toLowerCase() === 'online' || i.status?.toLowerCase() === 'active').length);
+        }
 
-      // Fetch Critical Alerts
-      const alertsRes = await fetch('http://localhost:5000/api/alerts/critical');
-      const alertsData = await alertsRes.json();
-      if (alertsData.status === 'success') {
-        setCriticalAlerts(alertsData.data.length);
+        const alertsRes = await fetch(`http://localhost:5000/api/alerts/critical?block=${activeBlock}`);
+        const alertsData = await alertsRes.json();
+        if (alertsData.status === 'success') {
+          setCriticalAlerts(alertsData.data.length);
+        }
+        setTotalPowerDisplay('0.0');
       }
     } catch (error) {
-      console.error("Failed to fetch dashboard metrics from backend", error);
+      console.error("Failed to fetch dashboard metrics from backend. Is the backend server running on port 5000?", error);
     }
+    setIsLoading(false);
     setIsRefreshing(false);
   };
 
+  // Re-fetch when the active block changes
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [activeBlock]);
 
   const handleRefresh = () => {
     fetchDashboardData();
@@ -101,7 +126,7 @@ export default function Dashboard() {
         />
         <MetricCard
           title="Energy Generated Today"
-          value="8.4"
+          value={totalPowerDisplay}
           unit="MWh"
           icon={<Sun className="w-6 h-6" />}
           color="#FFC107"
