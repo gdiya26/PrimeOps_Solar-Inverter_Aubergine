@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Activity, Zap, AlertCircle, Sun, TrendingUp, X } from 'lucide-react';
+import { Activity, Zap, AlertCircle, Sun, TrendingUp, X, RefreshCw } from 'lucide-react';
 import MetricCard from '../MetricCard';
 import SolarPlantVisualization from '../SolarPlantVisualization';
 import RealTimeCharts from '../RealTimeCharts';
@@ -10,17 +10,43 @@ import AIPredictiveTimeline from '../AIPredictiveTimeline';
 
 export default function Dashboard() {
   const [selectedInverter, setSelectedInverter] = useState<any>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    // Simulate real data fetching delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsRefreshing(false);
+  };
 
   return (
     <div className="space-y-6">
-      {/* Page Title */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <h1 className="text-3xl font-bold mb-2">Solar Plant Control Center</h1>
-        <p className="text-gray-400">Real-time monitoring and AI-powered predictive maintenance</p>
-      </motion.div>
+      {/* Page Title & Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <h1 className="text-3xl font-bold mb-2">Solar Plant Control Center</h1>
+          <p className="text-gray-400">Real-time monitoring and AI-powered predictive maintenance</p>
+        </motion.div>
+
+        <motion.button
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-2 bg-[#1A1D29] hover:bg-[#252B3D] text-white border border-gray-800 px-4 py-2.5 rounded-lg transition-colors font-medium self-start sm:self-auto disabled:opacity-70"
+        >
+          <motion.div
+            animate={{ rotate: isRefreshing ? 360 : 0 }}
+            transition={{ duration: 1, repeat: isRefreshing ? Infinity : 0, ease: "linear" }}
+          >
+            <RefreshCw className="w-4 h-4 text-[#FFC107]" />
+          </motion.div>
+          {isRefreshing ? 'Syncing...' : 'Refresh Data'}
+        </motion.button>
+      </div>
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -118,14 +144,14 @@ export default function Dashboard() {
                       selectedInverter.health === 'healthy'
                         ? '#00E67620'
                         : selectedInverter.health === 'warning'
-                        ? '#FFC10720'
-                        : '#FF525220',
+                          ? '#FFC10720'
+                          : '#FF525220',
                     color:
                       selectedInverter.health === 'healthy'
                         ? '#00E676'
                         : selectedInverter.health === 'warning'
-                        ? '#FFC107'
-                        : '#FF5252',
+                          ? '#FFC107'
+                          : '#FF5252',
                   }}
                 >
                   {selectedInverter.health.toUpperCase()}
@@ -155,8 +181,8 @@ export default function Dashboard() {
                             selectedInverter.riskScore > 70
                               ? '#FF5252'
                               : selectedInverter.riskScore > 40
-                              ? '#FFC107'
-                              : '#00E676',
+                                ? '#FFC107'
+                                : '#00E676',
                         }}
                       />
                     </div>

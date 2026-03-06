@@ -81,22 +81,12 @@ export default function Chatbot() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Page Title */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <h1 className="text-3xl font-bold mb-2">AI Chatbot Assistant</h1>
-        <p className="text-gray-400">Ask questions and get intelligent insights about your solar plant</p>
-      </motion.div>
-
+    <div className="h-[calc(100vh-100px)]">
       {/* Chatbot Interface */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-[#1A1D29] rounded-xl border border-gray-800 overflow-hidden"
-        style={{ height: 'calc(100vh - 280px)' }}
+        className="bg-[#1A1D29] rounded-xl border border-gray-800 overflow-hidden h-full flex flex-col"
       >
         {/* Header */}
         <div className="bg-gradient-to-r from-[#FFC107] to-[#FF9800] p-4 flex items-center gap-3">
@@ -113,7 +103,7 @@ export default function Chatbot() {
         </div>
 
         {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6" style={{ height: 'calc(100% - 200px)' }}>
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Suggested Queries */}
           {messages.length === 1 && (
             <div className="mb-6">
@@ -145,17 +135,15 @@ export default function Chatbot() {
               className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[70%] rounded-2xl px-5 py-4 ${
-                  message.type === 'user'
+                className={`max-w-[70%] rounded-2xl px-5 py-4 ${message.type === 'user'
                     ? 'bg-gradient-to-r from-[#FFC107] to-[#FF9800] text-[#0E1117]'
                     : 'bg-[#0E1117] text-white border border-gray-800'
-                }`}
+                  }`}
               >
                 <p className="text-sm leading-relaxed mb-2">{message.content}</p>
                 <p
-                  className={`text-xs ${
-                    message.type === 'user' ? 'text-[#0E1117]/60' : 'text-gray-500'
-                  }`}
+                  className={`text-xs ${message.type === 'user' ? 'text-[#0E1117]/60' : 'text-gray-500'
+                    }`}
                 >
                   {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
