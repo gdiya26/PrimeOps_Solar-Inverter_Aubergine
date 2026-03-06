@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Activity, Zap, AlertCircle, Sun, TrendingUp, X, RefreshCw } from 'lucide-react';
 import MetricCard from '../MetricCard';
@@ -11,12 +11,40 @@ import AIPredictiveTimeline from '../AIPredictiveTimeline';
 export default function Dashboard() {
   const [selectedInverter, setSelectedInverter] = useState<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [inverterCount, setInverterCount] = useState(0);
+  const [onlineCount, setOnlineCount] = useState(0);
+  const [criticalAlerts, setCriticalAlerts] = useState(0);
 
-  const handleRefresh = async () => {
+  const fetchDashboardData = async () => {
     setIsRefreshing(true);
-    // Simulate real data fetching delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      // Fetch Inverters
+      const invRes = await fetch('http://localhost:5000/api/inverters');
+      const invData = await invRes.json();
+      if (invData.status === 'success') {
+        const inverters = invData.data;
+        setInverterCount(inverters.length);
+        setOnlineCount(inverters.filter((i: any) => i.status === 'online').length);
+      }
+
+      // Fetch Critical Alerts
+      const alertsRes = await fetch('http://localhost:5000/api/alerts/critical');
+      const alertsData = await alertsRes.json();
+      if (alertsData.status === 'success') {
+        setCriticalAlerts(alertsData.data.length);
+      }
+    } catch (error) {
+      console.error("Failed to fetch dashboard metrics from backend", error);
+    }
     setIsRefreshing(false);
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const handleRefresh = () => {
+    fetchDashboardData();
   };
 
   return (
@@ -52,24 +80,24 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <MetricCard
           title="Total Inverters"
-          value={8}
+          value={inverterCount}
           icon={<Activity className="w-6 h-6" />}
           color="#1E88E5"
         />
         <MetricCard
           title="Inverters Online"
-          value={8}
+          value={onlineCount}
           icon={<Zap className="w-6 h-6" />}
           color="#00E676"
           trend={0}
         />
         <MetricCard
           title="Active Fault Alerts"
-          value={3}
+          value={criticalAlerts}
           icon={<AlertCircle className="w-6 h-6" />}
           color="#FF5252"
-          alert={true}
-          trend={15}
+          alert={criticalAlerts > 0}
+          trend={criticalAlerts > 0 ? 15 : 0}
         />
         <MetricCard
           title="Energy Generated Today"
