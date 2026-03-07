@@ -169,10 +169,10 @@ export default function Layout() {
           {/* Block Selection Tabs */}
           {location.pathname !== '/chatbot' && (
             <div className="px-6 py-2 bg-[#0E1117] flex gap-4 overflow-x-auto no-scrollbar border-b border-gray-800">
-               {['All', 'A', 'B', 'C', 'D', 'E', 'F'].map((blockName) => (
+               {['All', 'A', 'B', 'C', 'E', 'F'].map((blockName) => (
                   <button
                       key={blockName}
-                      onClick={() => setActiveBlock(blockName as 'All' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F')}
+                      onClick={() => setActiveBlock(blockName as 'All' | 'A' | 'B' | 'C' | 'E' | 'F')}
                       className={`px-4 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                         activeBlock === blockName 
                           ? 'bg-[#FFC107] text-black' 

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-type BlockType = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'All';
+type BlockType = 'A' | 'B' | 'C' | 'E' | 'F' | 'All';
 
 interface BlockContextType {
   activeBlock: BlockType;

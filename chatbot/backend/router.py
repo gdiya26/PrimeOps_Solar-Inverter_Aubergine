@@ -32,11 +32,16 @@ def process_query(user_query: str, history: list = None) -> str:
     
     Extract entities:
     - 'inverter_id': MAC address strings, or resolve pronouns like "it" from Context.
-    - 'plant_id': e.g. "plant2_1"
+    - 'plant_id': MUST MAP to one of these tables exactly if present in context/query:
+        - "Plant A" or "11" -> "plant1_1"
+        - "Plant B" or "12" -> "plant1_2"
+        - "Plant C" or "21" -> "plant2_1"
+        - "Plant E" or "31" -> "plant3_1"
+        - "Plant F" or "32" -> "plant3_2"
     - 'inverter_idx': an integer string "1", "2".
     
     Reply ONLY in valid raw JSON:
-    {{"intent": "failure_prediction|plant_information|maintenance_recommendation|ranking|general", "query_type": "count|list|null", "inverter_id": "string|null", "plant_id": "string|null", "inverter_idx": "string|null"}}
+    {{"intent": "failure_prediction|plant_information|maintenance_recommendation|ranking|general", "query_type": "count|list|summary|null", "inverter_id": "string|null", "plant_id": "string|null", "inverter_idx": "string|null"}}
     
     Recent Context:
     {context_str}
@@ -59,6 +64,11 @@ def process_query(user_query: str, history: list = None) -> str:
     inverter_id = route_data.get("inverter_id")
     inverter_idx = route_data.get("inverter_idx")
     query_type = route_data.get("query_type")
+
+    # Early Exit Logic for Missing Context
+    if intent in ["failure_prediction", "maintenance_recommendation", "ranking"]:
+        if not plant_id and not inverter_id and not inverter_idx:
+            return "Could you please specify which **Plant (A-F)** or **Inverter** you are referring to? I need a bit more context to run the predictive analytics."
     
     # 2. Tool Dispatching
     tool_output = ""
@@ -105,7 +115,7 @@ def process_query(user_query: str, history: list = None) -> str:
     2. If the Intent is 'maintenance_recommendation', explicitly analyze the "Top Feature mathematically responsible" (like Temperature or Voltage) and provide 3 concrete, simple Bullet Points on how a technician should check/fix it.
     3. If the Intent is 'failure_prediction', clearly state whether the inverter is NORMAL or FAILING SOON, provide the Risk Probability percentage, and explain *why* simply (based on the Top Feature). Give a one-sentence recommendation.
     4. If the System Memory says "I do not have enough data", politely inform the user.
-    5. Format elegantly in Markdown (use bolding for emphasis, bullet points for lists). Keep it concise and actionable.
+    5. Format elegantly in Markdown. CRITICAL: You MUST use **bold text** for important keywords, values, and entities. MUST use bullet points for lists. Structure the response neatly with headings and line breaks. Keep it concise, actionable, and visually appealing.
     """
     
     try:

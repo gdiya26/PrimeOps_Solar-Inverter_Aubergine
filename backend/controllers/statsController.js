@@ -85,10 +85,19 @@ const getDashboardStats = async (req, res) => {
         }
 
         // No block filter — fetch ALL inverters
-        const { data: inverters, error: inverterError } = await supabase
-            .from('inverters')
-            .select('id, status');
-        if (inverterError) throw inverterError;
+        const { getAllowedTables } = require('../utils/blockMapper');
+        const { data: tables } = await supabase.from('solar_tables').select('id').in('name', getAllowedTables());
+        const tableIds = tables?.map(t => t.id) || [];
+
+        let inverters = [];
+        if (tableIds.length > 0) {
+            const { data, error: inverterError } = await supabase
+                .from('inverters')
+                .select('id, status')
+                .in('solar_table_id', tableIds);
+            if (inverterError) throw inverterError;
+            inverters = data || [];
+        }
 
         const totalInverters = inverters.length;
         const activeInverters = inverters.filter(inv =>

@@ -2,11 +2,12 @@ import { motion } from 'motion/react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@radix-ui/react-tooltip';
 
 interface InverterNode {
-  id: number;
+  id: number | string;
   health: 'healthy' | 'warning' | 'critical';
   temperature: number;
   powerOutput: number;
   riskScore: number;
+  serial_number?: string;
 }
 
 const mockInverters: InverterNode[] = [
@@ -20,7 +21,13 @@ const mockInverters: InverterNode[] = [
   { id: 8, health: 'healthy', temperature: 49, powerOutput: 97, riskScore: 20 },
 ];
 
-export default function SolarPlantVisualization({ onInverterClick }: { onInverterClick?: (inverter: InverterNode) => void }) {
+export default function SolarPlantVisualization({ 
+  onInverterClick,
+  inverters = mockInverters
+}: { 
+  onInverterClick?: (inverter: InverterNode) => void;
+  inverters?: InverterNode[];
+}) {
   const getHealthColor = (health: string) => {
     switch (health) {
       case 'healthy':
@@ -57,8 +64,8 @@ export default function SolarPlantVisualization({ onInverterClick }: { onInverte
 
           {/* Inverters Grid */}
           <TooltipProvider>
-            <div className="grid grid-cols-4 gap-4">
-              {mockInverters.map((inverter) => (
+            <div className={`grid gap-4 ${inverters.length > 8 ? 'grid-cols-6 sm:grid-cols-4 md:grid-cols-6' : 'grid-cols-4'}`}>
+              {inverters.map((inverter, idx) => (
                 <Tooltip key={inverter.id}>
                   <TooltipTrigger asChild>
                     <motion.button
@@ -90,7 +97,7 @@ export default function SolarPlantVisualization({ onInverterClick }: { onInverte
                       )}
 
                       <span className="text-xs font-bold" style={{ color: getHealthColor(inverter.health) }}>
-                        {inverter.id}
+                        {idx + 1}
                       </span>
                     </motion.button>
                   </TooltipTrigger>
@@ -99,7 +106,7 @@ export default function SolarPlantVisualization({ onInverterClick }: { onInverte
                     sideOffset={5}
                   >
                     <div className="text-xs space-y-1">
-                      <p className="font-bold text-white">Inverter {inverter.id}</p>
+                      <p className="font-bold text-white">{inverter.serial_number || `Inverter ${inverter.id}`}</p>
                       <p className="text-gray-400">Temperature: {inverter.temperature}°C</p>
                       <p className="text-gray-400">Power: {inverter.powerOutput}%</p>
                       <p className="text-gray-400">Risk: {inverter.riskScore}%</p>

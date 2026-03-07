@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, X, Send, Sparkles } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   id: number;
@@ -8,13 +9,6 @@ interface Message {
   content: string;
   timestamp: Date;
 }
-
-const sampleResponses = [
-  "Based on the current data, Inverter 4 shows the highest failure risk at 82% due to elevated internal temperatures (avg 67°C) and unstable PV voltage patterns.",
-  "I've detected voltage anomalies in Inverters 3 and 7. Both show voltage fluctuations exceeding normal operating thresholds by 15%.",
-  "According to my predictive model, Inverter 2 is most likely to fail next, with a predicted failure window of 3-5 days.",
-  "The temperature spike you're seeing is within acceptable parameters, but I recommend monitoring it closely. I'll alert you if it exceeds critical thresholds.",
-];
 
 const suggestedQueries = [
   "Why is inverter 4 failing?",
@@ -45,7 +39,7 @@ export default function FloatingChatbot() {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
 
     // Add user message
@@ -56,21 +50,43 @@ export default function FloatingChatbot() {
       timestamp: new Date(),
     };
 
-    setMessages([...messages, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setInput('');
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const historyMsg = messages.map((msg) => ({
+        role: msg.type === 'user' ? 'user' : 'assistant',
+        content: msg.content,
+      }));
+
+      const res = await fetch('http://localhost:5000/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: input, history: historyMsg }),
+      });
+
+      if (!res.ok) throw new Error('API failed');
+      const data = await res.json();
+      
       const aiMessage: Message = {
-        id: messages.length + 2,
+        id: newMessages.length + 2,
         type: 'ai',
-        content: sampleResponses[Math.floor(Math.random() * sampleResponses.length)],
+        content: data.reply || "I didn't understand that.",
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages((prev) => [...prev, aiMessage]);
+    } catch (err) {
+      setMessages((prev) => [...prev, {
+        id: newMessages.length + 2,
+        type: 'ai',
+        content: 'Error connecting to the AI backend.',
+        timestamp: new Date(),
+      }]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const handleSuggestedQuery = (query: string) => {
@@ -163,14 +179,26 @@ export default function FloatingChatbot() {
                   className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                       message.type === 'user'
                         ? 'bg-gradient-to-r from-[#FFC107] to-[#FF9800] text-[#0E1117]'
                         : 'bg-[#0E1117] text-white border border-gray-800'
                     }`}
                   >
-                    <p className="text-sm">{message.content}</p>
-                    <p className={`text-xs mt-1 ${
+                    <div className={`text-sm leading-relaxed mb-1 prose prose-invert max-w-none ${message.type === 'user' ? 'prose-p:text-[#0E1117] prose-strong:text-[#0E1117]' : 'prose-p:text-gray-300'} prose-ul:my-1 prose-li:my-0`}>
+                      <ReactMarkdown 
+                        components={{
+                          p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                          ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-2" {...props} />,
+                          ol: ({node, ...props}) => <ol className="list-decimal pl-5 mb-2" {...props} />,
+                          li: ({node, ...props}) => <li className="mb-1" {...props} />,
+                          strong: ({node, ...props}) => <strong className="font-bold bg-white/10 px-1 rounded-sm" {...props} />
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                    <p className={`text-[10px] mt-1 ${
                       message.type === 'user' ? 'text-[#0E1117]/60' : 'text-gray-500'
                     }`}>
                       {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

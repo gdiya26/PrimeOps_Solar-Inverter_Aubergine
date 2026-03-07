@@ -25,6 +25,22 @@ if (!supabaseUrl || !supabaseKey) {
     console.warn('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in environment variables.');
 }
 
-const supabase = createClient(supabaseUrl || '', supabaseKey || '');
+const customFetch = async (url, options) => {
+    let retries = 3;
+    while (retries > 0) {
+        try {
+            return await fetch(url, { ...options, keepalive: true });
+        } catch (err) {
+            retries -= 1;
+            if (retries === 0) throw err;
+            await new Promise(res => setTimeout(res, 1500)); // wait 1.5s before retry
+        }
+    }
+};
+
+const supabase = createClient(supabaseUrl || '', supabaseKey || '', {
+    auth: { persistSession: false },
+    global: { fetch: customFetch }
+});
 
 module.exports = supabase;

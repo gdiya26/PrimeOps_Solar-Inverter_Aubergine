@@ -3,7 +3,21 @@ const { getTableFromBlock } = require('../utils/blockMapper');
 
 // Helper: resolve inverter IDs for a given block
 const getInverterIdsForBlock = async (block) => {
-    if (!block || block === 'All') return null; // null = no filter
+    const { getTableFromBlock, getAllowedTables } = require('../utils/blockMapper');
+
+    if (!block || block === 'All') {
+        const { data: tables } = await supabase.from('solar_tables').select('id').in('name', getAllowedTables());
+        const tableIds = tables?.map(t => t.id) || [];
+        if (tableIds.length === 0) return [];
+        
+        const { data: inverters, error: invError } = await supabase
+            .from('inverters')
+            .select('id')
+            .in('solar_table_id', tableIds);
+            
+        if (invError || !inverters) return [];
+        return inverters.map(i => i.id);
+    }
 
     const tableName = getTableFromBlock(block);
     if (!tableName) return [];

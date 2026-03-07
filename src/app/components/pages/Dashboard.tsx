@@ -18,6 +18,16 @@ export default function Dashboard() {
   const [onlineCount, setOnlineCount] = useState(0);
   const [criticalAlerts, setCriticalAlerts] = useState(0);
   const [totalPowerDisplay, setTotalPowerDisplay] = useState('—');
+  const [inverterNodes, setInverterNodes] = useState<any[]>([]);
+
+  // Simple deterministic hash for mock telemetry
+  const pseudoHash = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return Math.abs(hash);
+  };
 
   const fetchDashboardData = async () => {
     setIsRefreshing(true);
@@ -40,21 +50,49 @@ export default function Dashboard() {
           setTotalPowerDisplay(typeof totalPowerToday === 'number' ? totalPowerToday.toFixed(1) : '0.0');
       } else {
         console.warn('Stats endpoint returned non-success, falling back to individual endpoints');
-        const invRes = await fetch(`http://localhost:5000/api/inverters?block=${activeBlock}`);
-        const invData = await invRes.json();
-        console.log('Inverters fallback response:', invData);
-        if (invData.status === 'success') {
-          const inverters = invData.data;
-          setInverterCount(inverters.length);
-          setOnlineCount(inverters.filter((i: any) => i.status?.toLowerCase() === 'online' || i.status?.toLowerCase() === 'active').length);
-        }
-
         const alertsRes = await fetch(`http://localhost:5000/api/alerts/critical?block=${activeBlock}`);
         const alertsData = await alertsRes.json();
         if (alertsData.status === 'success') {
           setCriticalAlerts(alertsData.data.length);
         }
         setTotalPowerDisplay('0.0');
+      }
+
+      // Always explicitly fetch the specific inverters for visualization mappings
+      const invRes = await fetch(`http://localhost:5000/api/inverters?block=${activeBlock}`);
+      const invData = await invRes.json();
+      if (invData.status === 'success') {
+        const inverters = invData.data;
+        if (statsData.status !== 'success') {
+           setInverterCount(inverters.length);
+           setOnlineCount(inverters.filter((i: any) => i.status?.toLowerCase() === 'online' || i.status?.toLowerCase() === 'active').length);
+        }
+
+        // Map live DB nodes to visualizer format
+        const mappedNodes = inverters.map((inv: any, idx: number) => {
+          const hash = pseudoHash(inv.id);
+          const risk = hash % 100;
+          let health = 'healthy';
+          if (inv.status === 'offline' || risk > 75) health = 'critical';
+          else if (risk > 40) health = 'warning';
+
+          return {
+            id: inv.id,
+            serial_number: inv.serial_number || `INV-${idx+1}`,
+            health,
+            temperature: 40 + (hash % 35),
+            powerOutput: 50 + (hash % 50),
+            riskScore: risk
+          };
+        });
+        
+        // Sort by critical -> healthy
+        mappedNodes.sort((a: any, b: any) => {
+          const w = { critical: 3, warning: 2, healthy: 1 };
+          return w[b.health as keyof typeof w] - w[a.health as keyof typeof w];
+        });
+        
+        setInverterNodes(mappedNodes);
       }
     } catch (error) {
       console.error("Failed to fetch dashboard metrics from backend. Is the backend server running on port 5000?", error);
@@ -134,15 +172,24 @@ export default function Dashboard() {
         />
         <MetricCard
           title="Predicted Failures (7d)"
-          value={2}
+          value={inverterNodes.filter(n => n.riskScore > 75).length}
           icon={<TrendingUp className="w-6 h-6" />}
           color="#FF9800"
-          alert={true}
+          alert={inverterNodes.some(n => n.riskScore > 75)}
         />
       </div>
 
       {/* Solar Plant Visualization */}
-      <SolarPlantVisualization onInverterClick={setSelectedInverter} />
+      {inverterNodes.length > 0 ? (
+        <SolarPlantVisualization 
+          inverters={inverterNodes} 
+          onInverterClick={setSelectedInverter} 
+        />
+      ) : (
+        <div className="bg-[#1A1D29] rounded-xl p-8 border border-gray-800 flex items-center justify-center">
+           <p className="text-gray-400">Loading plant topology...</p>
+        </div>
+      )}
 
       {/* Real-Time Charts */}
       <RealTimeCharts />
@@ -180,7 +227,7 @@ export default function Dashboard() {
               <div className="p-6">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold">Inverter {selectedInverter.id}</h2>
+                  <h2 className="text-2xl font-bold">{selectedInverter.serial_number || `Inverter ${selectedInverter.id}`}</h2>
                   <button
                     onClick={() => setSelectedInverter(null)}
                     className="p-2 hover:bg-gray-800 rounded-lg transition-colors"

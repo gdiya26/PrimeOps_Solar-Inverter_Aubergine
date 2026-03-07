@@ -60,8 +60,33 @@ def get_plant_inverters(plant_id: str) -> dict:
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+def get_all_plants_summary() -> str:
+    """Gets total plants and their respective inverter counts."""
+    plants = ["plant1_1", "plant1_2", "plant2_1", "plant3_1", "plant3_2"]
+    plant_letters = ["A", "B", "C", "E", "F"]
+    
+    summary_lines = []
+    total_inverters = 0
+    
+    for i, p_id in enumerate(plants):
+        info = get_plant_inverters(p_id)
+        if info['success']:
+            count = info['inverter_count']
+            total_inverters += count
+            summary_lines.append(f"- **Plant {plant_letters[i]}** ({p_id}): {count} inverters")
+            
+    if not summary_lines:
+        return "I could not retrieve data for any plants."
+        
+    res = f"There are **{len(plants)} total plants** installed, containing a total of **{total_inverters} inverters**.\n\n"
+    res += "\n".join(summary_lines)
+    return res
+
 def execute_generic_sql_intent(plant_id: str, query_type: str) -> str:
     """A safe wrapper for generic structural reads about plant metadata."""
+    if query_type == "summary":
+         return get_all_plants_summary()
+         
     if query_type == "count":
         info = get_plant_inverters(plant_id)
         if info['success']:

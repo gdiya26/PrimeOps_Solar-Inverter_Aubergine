@@ -3,10 +3,14 @@ const { getTableFromBlock } = require('../utils/blockMapper');
 
 // Helper to get inverters filtered by block (or all if no block)
 const getInverterQuery = async (block) => {
+    const { getTableFromBlock, getAllowedTables } = require('../utils/blockMapper');
+
     if (!block || block === 'All') {
-        return supabase.from('inverters').select('*');
+        const { data: tables } = await supabase.from('solar_tables').select('id').in('name', getAllowedTables());
+        const tableIds = tables?.map(t => t.id) || [];
+        return supabase.from('inverters').select('*').in('solar_table_id', tableIds);
     }
-    const { getTableFromBlock } = require('../utils/blockMapper');
+    
     const tableName = getTableFromBlock(block);
     if (!tableName) return null;
 
@@ -40,7 +44,11 @@ const getAllInverters = async (req, res) => {
 
             query = supabase.from('inverters').select('*').eq('solar_table_id', tableRow.id);
         } else {
-            query = supabase.from('inverters').select('*');
+            const { getAllowedTables } = require('../utils/blockMapper');
+            const { data: tables } = await supabase.from('solar_tables').select('id').in('name', getAllowedTables());
+            const tableIds = tables?.map(t => t.id) || [];
+            if (tableIds.length === 0) return res.status(200).json({ status: 'success', data: [] });
+            query = supabase.from('inverters').select('*').in('solar_table_id', tableIds);
         }
 
         const { data, error } = await query;

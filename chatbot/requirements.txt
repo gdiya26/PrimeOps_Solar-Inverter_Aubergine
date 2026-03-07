@@ -9,3 +9,5 @@ uvicorn
 openai
 pydantic
 requests
+groq>=0.4.0
+python-multipart

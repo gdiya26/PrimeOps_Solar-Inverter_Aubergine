@@ -13,7 +13,7 @@ const analyzeReadings = async () => {
 
         const { data: recentReadings, error: readingsError } = await supabase
             .from('inverter_readings')
-            .select('*, inverters!inner(name, id)')
+            .select('*, inverters!inner(serial_number, id)')
             .gte('timestamp', fifteenMinutesAgo)
             .order('timestamp', { ascending: false });
 
@@ -57,17 +57,17 @@ const analyzeReadings = async () => {
                 alertNeeded = true;
                 severity = 'High';
                 type = 'Critical';
-                message = `Inverter ${inverters.name || inverterId} overheating. Temperature exactly at ${temperature}°C.`;
+                message = `Inverter ${inverters.serial_number || inverterId} overheating. Temperature exactly at ${temperature}°C.`;
             } else if (power_kw === 0 && isDaytime) {
                 alertNeeded = true;
                 severity = 'High';
                 type = 'Critical';
-                message = `Inverter ${inverters.name || inverterId} is outputting 0kW during daylight hours.`;
+                message = `Inverter ${inverters.serial_number || inverterId} is outputting 0kW during daylight hours.`;
             } else if (efficiency < 80) {
                 alertNeeded = true;
                 severity = 'Medium';
                 type = 'Underperforming';
-                message = `Inverter ${inverters.name || inverterId} underperforming. Efficiency at ${efficiency}%.`;
+                message = `Inverter ${inverters.serial_number || inverterId} underperforming. Efficiency at ${efficiency}%.`;
             }
 
             if (alertNeeded) {

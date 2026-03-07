@@ -40,7 +40,7 @@ def fetch_latest_telemetry(inverter_id=None, plant_id=None, inverter_idx=None):
     
     # List of tables visible in the user's architecture
     tables_to_check = [plant_id] if plant_id else [
-        "plant1_1", "plant1_2", "plant2_1", "plant2_2", "plant3_1", "plant3_2", SUPABASE_TABLE
+        "plant1_1", "plant1_2", "plant2_1", "plant3_1", "plant3_2", SUPABASE_TABLE
     ]
     
     row = None
