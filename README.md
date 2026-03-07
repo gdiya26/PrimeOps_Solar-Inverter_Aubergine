@@ -114,3 +114,38 @@ We prioritized a high-fidelity modern dashboard look.
 - **Dark Mode Native:** Deep charcoal `#0E1117` and `#1A1D29` for reduced eye strain in operational command centers.
 - **Color Coding:** Actionable health metric colors: `#00E676` (Healthy/Green), `#FFC107` (Warning/Amber), `#FF5252` (Critical/Red).
 - **Framer Motion:** Used to inject micro-animations, ensuring the dashboard feels alive during real-time data ingestion.
+<<<<<<< HEAD
+=======
+
+## Team Members
+#### Member 1
+- **Name:** Aadhiya Hirani
+- **Phone Number:** 9429277156
+- **email ID:** 23bce103@nirmauni.ac.in
+- **College name:** Nirma University
+- **Year of Graduation:** 2027
+#### Member 2
+- **Name:** Diya Gupta
+- **Phone Number:** 9879472806
+- **email ID:** 23bce071@nirmauni.ac.in
+- **College name:** Nirma University
+- **Year of Graduation:** 2027
+#### Member 3
+- **Name:** Tejas Gheria
+- **Phone Number:** 8849348301
+- **email ID:** 23bce082@nirmauni.ac.in
+- **College name:** Nirma University
+- **Year of Graduation:** 2027
+#### Member 4
+- **Name:** Hensi Patel
+- **Phone Number:** 7043351302
+- **email ID:** 23bce095@nirmauni.ac.in
+- **College name:** Nirma University
+- **Year of Graduation:** 2027
+#### Member 5
+- **Name:** Prapti Patel
+- **Phone Number:** 7041985054
+- **email ID:** 23bce241@nirmauni.ac.in
+- **College name:** Nirma University
+- **Year of Graduation:** 2027
+>>>>>>> 1281f0c3a69a23b008dd9eefd8517c9388a1dd86
