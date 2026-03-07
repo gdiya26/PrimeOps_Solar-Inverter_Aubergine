@@ -3,11 +3,15 @@ const router = express.Router();
 const {
     getAllAlerts,
     getCriticalAlerts,
-    createAlert
+    createAlert,
+    getTelemetryAlerts
 } = require('../controllers/alertController');
 
 // GET /api/alerts/critical
 router.get('/critical', getCriticalAlerts);
+
+// GET /api/alerts/telemetry
+router.get('/telemetry', getTelemetryAlerts);
 
 // GET /api/alerts
 router.get('/', getAllAlerts);

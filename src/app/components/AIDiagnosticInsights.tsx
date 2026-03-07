@@ -1,13 +1,8 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Lightbulb } from 'lucide-react';
-
-const shapData = [
-  { factor: 'String 1 Current', impact: 0.993, positive: false },
-  { factor: 'Temperature', impact: 0.006, positive: false },
-  { factor: 'Voltage V_ab', impact: 0.001, positive: false },
-  { factor: 'Ambient Temp', impact: 0.000, positive: false },
-];
+import { useBlock } from '../contexts/BlockContext';
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
@@ -24,6 +19,64 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export default function AIDiagnosticInsights() {
+  const { activeBlock } = useBlock();
+  const [shapData, setShapData] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<string[]>([]);
+  const [criticalText, setCriticalText] = useState('');
+
+  useEffect(() => {
+    const fetchDiagnostics = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/stats/inverter-telemetry?block=${activeBlock}`);
+        const data = await res.json();
+        if (data.status === 'success' && data.data.length > 0) {
+          // Compute average metrics across all inverters
+          const invs = data.data;
+          const avgTemp = invs.reduce((s: number, i: any) => s + i.temperature, 0) / invs.length;
+          const avgPower = invs.reduce((s: number, i: any) => s + i.powerOutput, 0) / invs.length;
+          const avgVoltage = invs.reduce((s: number, i: any) => s + i.voltage, 0) / invs.length;
+          const avgEff = invs.reduce((s: number, i: any) => s + i.efficiency, 0) / invs.length;
+
+          // Compute relative impact weights
+          const tempImpact = avgTemp > 85 ? 0.4 : (avgTemp > 75 ? 0.2 : 0.05);
+          const powerImpact = avgPower < 50 ? 0.35 : (avgPower < 150 ? 0.15 : 0.03);
+          const voltageImpact = avgVoltage < 300 ? 0.2 : 0.02;
+          const total = tempImpact + powerImpact + voltageImpact + 0.01;
+
+          setShapData([
+            { factor: 'Temperature', impact: tempImpact / total, positive: false },
+            { factor: 'Power Output', impact: powerImpact / total, positive: false },
+            { factor: 'PV Voltage', impact: voltageImpact / total, positive: false },
+            { factor: 'Efficiency', impact: 0.01 / total, positive: true },
+          ]);
+
+          // Determine the dominant factor
+          const dominant = tempImpact >= powerImpact ? 'Temperature' : 'Power Output';
+          setCriticalText(
+            `Analysis of ${invs.length} inverters: Average temperature is ${avgTemp.toFixed(1)}°C, ` +
+            `average power output is ${avgPower.toFixed(2)} kW, and average efficiency is ${avgEff.toFixed(1)}%. ` +
+            `The dominant contributing factor is ${dominant}.`
+          );
+
+          // Dynamic recommendations
+          const recs: string[] = [];
+          if (avgTemp > 85) recs.push(`Monitor high temperature inverters (avg ${avgTemp.toFixed(1)}°C)`);
+          if (avgPower < 50) recs.push(`Investigate low power output (avg ${avgPower.toFixed(2)} kW)`);
+          if (avgVoltage < 300) recs.push(`Check PV string connections for voltage drops (avg ${avgVoltage.toFixed(0)}V)`);
+          recs.push(`Continue monitoring efficiency trends (current avg: ${avgEff.toFixed(1)}%)`);
+          setRecommendations(recs);
+        } else {
+          setCriticalText('No telemetry data available for analysis.');
+          setRecommendations([]);
+          setShapData([]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch diagnostics:', err);
+      }
+    };
+    fetchDiagnostics();
+  }, [activeBlock]);
+
   return (
     <div className="bg-[#1A1D29] rounded-xl p-6 border border-gray-800">
       <div className="flex items-center gap-3 mb-6">
@@ -32,7 +85,7 @@ export default function AIDiagnosticInsights() {
         </div>
         <div>
           <h2 className="text-xl font-bold">AI Diagnostic Insights</h2>
-          <p className="text-sm text-gray-400">Feature Importance from Power Output Random Forest Model</p>
+          <p className="text-sm text-gray-400">Live Feature Importance Analysis</p>
         </div>
       </div>
 
@@ -43,12 +96,13 @@ export default function AIDiagnosticInsights() {
         className="bg-gradient-to-r from-[#FF5252]/10 to-transparent border-l-4 border-[#FF5252] rounded-lg p-4 mb-6"
       >
         <p className="text-sm leading-relaxed">
-          <span className="font-bold text-[#FF5252]">Critical Analysis:</span> The Random Forest Regression model identified that{' '}
-          <span className="text-[#FFC107] font-medium">String 1 Current anomalies</span> have an overwhelming 99.3% contribution to the drops in power output. Temperature and Voltage fluctuations contribute minimally.
+          <span className="font-bold text-[#FF5252]">Live Analysis:</span>{' '}
+          {criticalText || 'Loading diagnostics...'}
         </p>
       </motion.div>
 
       {/* Contributing Factors Chart */}
+      {shapData.length > 0 && (
       <div className="mb-6">
         <h3 className="text-sm font-bold mb-3 text-gray-400">Top Contributing Factors</h3>
         <ResponsiveContainer width="100%" height={250}>
@@ -58,15 +112,11 @@ export default function AIDiagnosticInsights() {
             <YAxis type="category" dataKey="factor" stroke="#666" style={{ fontSize: '12px' }} width={100} />
             <Tooltip content={<CustomTooltip />} />
             <Bar dataKey="impact" radius={[0, 8, 8, 0]} animationDuration={1500}>
-              {shapData.map((entry, index) => (
+              {shapData.map((_entry, index) => (
                 <Cell
                   key={`cell-${index}`}
                   fill={
-                    index === 0
-                      ? '#FF5252'
-                      : index === 1
-                      ? '#FFC107'
-                      : '#1E88E5'
+                    index === 0 ? '#FF5252' : index === 1 ? '#FFC107' : '#1E88E5'
                   }
                 />
               ))}
@@ -74,16 +124,13 @@ export default function AIDiagnosticInsights() {
           </BarChart>
         </ResponsiveContainer>
       </div>
+      )}
 
       {/* Recommendations */}
+      {recommendations.length > 0 && (
       <div className="space-y-3">
         <h3 className="text-sm font-bold text-gray-400">Recommended Actions</h3>
-        {[
-          'Schedule immediate inspection of String 1 connections on INV-1',
-          'Deploy field team to investigate potential shading on String 1',
-          'Monitor overall plant voltage for cascading impact',
-          'Optimize inverter MPPT sweeps to compensate for string unbalance'
-        ].map((recommendation, index) => (
+        {recommendations.map((recommendation, index) => (
           <motion.div
             key={index}
             initial={{ opacity: 0, x: -10 }}
@@ -98,6 +145,7 @@ export default function AIDiagnosticInsights() {
           </motion.div>
         ))}
       </div>
+      )}
     </div>
   );
 }

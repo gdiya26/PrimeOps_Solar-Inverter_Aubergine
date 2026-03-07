@@ -11,10 +11,10 @@ interface Message {
 }
 
 const suggestedQueries = [
-  "Why is inverter 4 failing?",
-  "Show anomalies in PV voltage",
-  "Which inverter will fail next?",
-  "Summarize today's performance",
+  "How many plants are there?",
+  "List all plants",
+  "How many inverters are in plant1_1?",
+  "What is the failure risk for inverter 2 in plant1_1?",
 ];
 
 export default function FloatingChatbot() {
@@ -29,6 +29,7 @@ export default function FloatingChatbot() {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -64,11 +65,16 @@ export default function FloatingChatbot() {
       const res = await fetch('http://localhost:5000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: input, history: historyMsg }),
+        body: JSON.stringify({ query: input, history: historyMsg, session_id: sessionId }),
       });
 
       if (!res.ok) throw new Error('API failed');
       const data = await res.json();
+
+      // Persist session_id from backend for context tracking
+      if (data.session_id) {
+        setSessionId(data.session_id);
+      }
       
       const aiMessage: Message = {
         id: newMessages.length + 2,

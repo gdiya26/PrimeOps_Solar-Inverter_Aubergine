@@ -1,8 +1,54 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import AIDiagnosticInsights from '../AIDiagnosticInsights';
 import { Brain, Lightbulb, Cpu } from 'lucide-react';
+import { useBlock } from '../../contexts/BlockContext';
 
 export default function AIInsights() {
+  const { activeBlock } = useBlock();
+  const [featureImportance, setFeatureImportance] = useState<any[]>([]);
+  const [modelStats, setModelStats] = useState({ inverterCount: 0, avgTemp: '—', avgPower: '—' });
+
+  useEffect(() => {
+    const fetchFeatures = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/stats/inverter-telemetry?block=${activeBlock}`);
+        const data = await res.json();
+        if (data.status === 'success' && data.data.length > 0) {
+          const invs = data.data;
+          const avgTemp = invs.reduce((s: number, i: any) => s + i.temperature, 0) / invs.length;
+          const avgPower = invs.reduce((s: number, i: any) => s + i.powerOutput, 0) / invs.length;
+          const avgVoltage = invs.reduce((s: number, i: any) => s + i.voltage, 0) / invs.length;
+          const avgEff = invs.reduce((s: number, i: any) => s + i.efficiency, 0) / invs.length;
+
+          // Compute relative importance from telemetry variance
+          const tempVariance = invs.reduce((s: number, i: any) => s + Math.abs(i.temperature - avgTemp), 0) / invs.length;
+          const powerVariance = invs.reduce((s: number, i: any) => s + Math.abs(i.powerOutput - avgPower), 0) / invs.length;
+          const voltVariance = invs.reduce((s: number, i: any) => s + Math.abs(i.voltage - avgVoltage), 0) / invs.length;
+          const effVariance = invs.reduce((s: number, i: any) => s + Math.abs(i.efficiency - avgEff), 0) / invs.length;
+
+          const total = tempVariance + powerVariance + voltVariance + effVariance + 0.01;
+
+          setFeatureImportance([
+            { feature: 'Temperature Trends', importance: parseFloat(((tempVariance / total) * 100).toFixed(1)), color: '#FF5252' },
+            { feature: 'PV Voltage Stability', importance: parseFloat(((voltVariance / total) * 100).toFixed(1)), color: '#FFC107' },
+            { feature: 'Efficiency Degradation', importance: parseFloat(((effVariance / total) * 100).toFixed(1)), color: '#1E88E5' },
+            { feature: 'Power Output Variance', importance: parseFloat(((powerVariance / total) * 100).toFixed(1)), color: '#00E676' },
+          ]);
+
+          setModelStats({
+            inverterCount: invs.length,
+            avgTemp: avgTemp.toFixed(1),
+            avgPower: avgPower.toFixed(2)
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch feature importance:', err);
+      }
+    };
+    fetchFeatures();
+  }, [activeBlock]);
+
   return (
     <div className="space-y-6">
       {/* Page Title */}
@@ -11,7 +57,9 @@ export default function AIInsights() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-3xl font-bold mb-2">AI Insights</h1>
-        <p className="text-gray-400">Deep learning analysis and explainable AI diagnostics</p>
+        <p className="text-gray-400">
+          Live analysis for {activeBlock === 'All' ? 'All Blocks' : `Block ${activeBlock}`}
+        </p>
       </motion.div>
 
       {/* AI Model Info Cards */}
@@ -26,11 +74,13 @@ export default function AIInsights() {
               <Brain className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="font-bold">ML Model</h3>
-              <p className="text-xs text-gray-400">Random Forest</p>
+              <h3 className="font-bold">Inverters Analyzed</h3>
+              <p className="text-xs text-gray-400">{modelStats.inverterCount} inverters</p>
             </div>
           </div>
-          <p className="text-sm text-gray-300">Trained on 2+ years of operational data from 1,200+ inverters</p>
+          <p className="text-sm text-gray-300">
+            Live telemetry from {activeBlock === 'All' ? 'all blocks' : `Block ${activeBlock}`}
+          </p>
         </motion.div>
 
         <motion.div
@@ -44,11 +94,11 @@ export default function AIInsights() {
               <Cpu className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="font-bold">Accuracy</h3>
-              <p className="text-xs text-gray-400">94.7%</p>
+              <h3 className="font-bold">Avg Temperature</h3>
+              <p className="text-xs text-gray-400">{modelStats.avgTemp}°C</p>
             </div>
           </div>
-          <p className="text-sm text-gray-300">Validated against 6 months of real-world failure events</p>
+          <p className="text-sm text-gray-300">Based on latest telemetry readings</p>
         </motion.div>
 
         <motion.div
@@ -62,11 +112,11 @@ export default function AIInsights() {
               <Lightbulb className="w-6 h-6 text-[#0E1117]" />
             </div>
             <div>
-              <h3 className="font-bold">Explainability</h3>
-              <p className="text-xs text-gray-400">SHAP Values</p>
+              <h3 className="font-bold">Avg Power Output</h3>
+              <p className="text-xs text-gray-400">{modelStats.avgPower} kW</p>
             </div>
           </div>
-          <p className="text-sm text-gray-300">Transparent AI with interpretable feature importance</p>
+          <p className="text-sm text-gray-300">Power across all analyzed inverters</p>
         </motion.div>
       </div>
 
@@ -79,15 +129,10 @@ export default function AIInsights() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-[#1A1D29] rounded-xl p-6 border border-gray-800"
       >
-        <h2 className="text-xl font-bold mb-6">Global Feature Importance</h2>
+        <h2 className="text-xl font-bold mb-6">Live Feature Importance</h2>
+        {featureImportance.length > 0 ? (
         <div className="space-y-4">
-          {[
-            { feature: 'Temperature Trends', importance: 35, color: '#FF5252' },
-            { feature: 'PV Voltage Stability', importance: 28, color: '#FFC107' },
-            { feature: 'Efficiency Degradation', importance: 18, color: '#1E88E5' },
-            { feature: 'Power Output Variance', importance: 12, color: '#00E676' },
-            { feature: 'Operational Age', importance: 7, color: '#9C27B0' },
-          ].map((item, index) => (
+          {featureImportance.map((item, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, x: -20 }}
@@ -112,6 +157,9 @@ export default function AIInsights() {
             </motion.div>
           ))}
         </div>
+        ) : (
+          <div className="text-center text-gray-500 py-8">No telemetry data available for analysis.</div>
+        )}
       </motion.div>
 
       {/* AI Training Info */}
@@ -120,23 +168,23 @@ export default function AIInsights() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-gradient-to-r from-[#1E88E5]/10 to-transparent border-l-4 border-[#1E88E5] rounded-lg p-6"
       >
-        <h3 className="text-lg font-bold mb-3">Model Training Details</h3>
+        <h3 className="text-lg font-bold mb-3">Analysis Method</h3>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <p className="text-gray-400">Training Dataset Size</p>
-            <p className="font-semibold text-white">2.4M data points</p>
+            <p className="text-gray-400">Data Source</p>
+            <p className="font-semibold text-white">Live Supabase Telemetry</p>
           </div>
           <div>
-            <p className="text-gray-400">Last Updated</p>
-            <p className="font-semibold text-white">March 1, 2026</p>
+            <p className="text-gray-400">Analysis Type</p>
+            <p className="font-semibold text-white">Real-time variance analysis</p>
           </div>
           <div>
-            <p className="text-gray-400">Features Used</p>
-            <p className="font-semibold text-white">24 parameters</p>
+            <p className="text-gray-400">Parameters Tracked</p>
+            <p className="font-semibold text-white">Temperature, Power, Voltage, Efficiency</p>
           </div>
           <div>
-            <p className="text-gray-400">Update Frequency</p>
-            <p className="font-semibold text-white">Weekly retraining</p>
+            <p className="text-gray-400">Refresh Interval</p>
+            <p className="font-semibold text-white">On block selection change</p>
           </div>
         </div>
       </motion.div>

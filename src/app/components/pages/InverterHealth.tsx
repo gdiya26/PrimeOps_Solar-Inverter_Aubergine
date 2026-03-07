@@ -19,13 +19,43 @@ export default function InverterHealth() {
 
   const fetchInverters = async () => {
     try {
+      // First try to get real telemetry data
+      const telRes = await fetch(`http://localhost:5000/api/stats/inverter-telemetry?block=${activeBlock}`);
+      const telData = await telRes.json();
+
+      if (telData.status === 'success' && telData.data.length > 0) {
+        const mappedData = telData.data.map((inv: any, idx: number) => ({
+          id: `INV-${idx + 1}`,
+          status: inv.health as 'healthy' | 'warning' | 'critical',
+          temperature: inv.temperature,
+          powerOutput: inv.powerOutput,
+          efficiency: inv.efficiency,
+          riskScore: inv.riskScore
+        }));
+        setInverters(mappedData);
+
+        let healthyCount = 0, warningCount = 0, criticalCount = 0, totalEff = 0;
+        mappedData.forEach((inv: InverterCardData) => {
+          if (inv.status === 'healthy') healthyCount++;
+          if (inv.status === 'warning') warningCount++;
+          if (inv.status === 'critical') criticalCount++;
+          totalEff += inv.efficiency;
+        });
+        setStats({
+          healthy: healthyCount,
+          warning: warningCount,
+          critical: criticalCount,
+          avgEfficiency: mappedData.length > 0 ? totalEff / mappedData.length : 0
+        });
+        return;
+      }
+
+      // Fallback: use structural inverter data from database
       const res = await fetch(`http://localhost:5000/api/inverters?block=${activeBlock}`);
       const data = await res.json();
       
       if (data.status === 'success') {
-          // Map backend data to frontend interface
           const mappedData = data.data.map((inv: any) => {
-              // Simulating some derived metrics if they don't exist in DB
               const risk = inv.status?.toLowerCase() === 'offline' ? 85 : 
                 (inv.status?.toLowerCase() === 'warning' ? 55 : 15);
               const statusMapped = risk > 70 ? 'critical' : (risk > 40 ? 'warning' : 'healthy');
@@ -33,27 +63,21 @@ export default function InverterHealth() {
               return {
                  id: inv.name || inv.id?.substring(0,8),
                  status: statusMapped,
-                 temperature: 45 + Math.floor(Math.random() * 20), // Mock if missing
-                 powerOutput: 80 + Math.floor(Math.random() * 20),
-                 efficiency: 95 + Math.random() * 4,
+                 temperature: 0,
+                 powerOutput: 0,
+                 efficiency: 0,
                  riskScore: risk
               };
           });
           setInverters(mappedData);
 
-          // Calculate Roll-up stats
-          let healthyCount = 0;
-          let warningCount = 0;
-          let criticalCount = 0;
-          let totalEff = 0;
-
+          let healthyCount = 0, warningCount = 0, criticalCount = 0, totalEff = 0;
           mappedData.forEach((inv: any) => {
              if (inv.status === 'healthy') healthyCount++;
              if (inv.status === 'warning') warningCount++;
              if (inv.status === 'critical') criticalCount++;
              totalEff += inv.efficiency;
           });
-
           setStats({
               healthy: healthyCount,
               warning: warningCount,

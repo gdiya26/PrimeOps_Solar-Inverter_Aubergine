@@ -1,88 +1,124 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { FileText, AlertCircle, Info, CheckCircle, AlertTriangle } from 'lucide-react';
+import { useBlock } from '../../contexts/BlockContext';
 
 interface LogEntry {
-  id: number;
+  id: string;
   timestamp: string;
   type: 'info' | 'warning' | 'error' | 'success';
   source: string;
   message: string;
 }
 
-const logs: LogEntry[] = [
-  {
-    id: 1,
-    timestamp: '2026-03-06 14:35:22',
-    type: 'error',
-    source: 'INV-004',
-    message: 'Critical temperature threshold exceeded (67°C)',
-  },
-  {
-    id: 2,
-    timestamp: '2026-03-06 14:20:15',
-    type: 'warning',
-    source: 'INV-002',
-    message: 'Voltage fluctuation detected - monitoring increased',
-  },
-  {
-    id: 3,
-    timestamp: '2026-03-06 14:05:08',
-    type: 'info',
-    source: 'System',
-    message: 'Hourly data sync completed successfully',
-  },
-  {
-    id: 4,
-    timestamp: '2026-03-06 13:45:33',
-    type: 'warning',
-    source: 'INV-007',
-    message: 'Temperature trending upward - 59°C',
-  },
-  {
-    id: 5,
-    timestamp: '2026-03-06 13:30:11',
-    type: 'success',
-    source: 'INV-006',
-    message: 'Performance optimization complete - efficiency at 98.2%',
-  },
-  {
-    id: 6,
-    timestamp: '2026-03-06 13:15:44',
-    type: 'info',
-    source: 'AI Model',
-    message: 'Predictive analysis completed for all inverters',
-  },
-  {
-    id: 7,
-    timestamp: '2026-03-06 13:00:00',
-    type: 'info',
-    source: 'System',
-    message: 'Daily report generated and sent to operators',
-  },
-  {
-    id: 8,
-    timestamp: '2026-03-06 12:45:27',
-    type: 'success',
-    source: 'INV-003',
-    message: 'Maintenance completed - all systems nominal',
-  },
-  {
-    id: 9,
-    timestamp: '2026-03-06 12:30:19',
-    type: 'error',
-    source: 'INV-004',
-    message: 'PV voltage instability detected - 8% variance',
-  },
-  {
-    id: 10,
-    timestamp: '2026-03-06 12:15:55',
-    type: 'info',
-    source: 'Grid',
-    message: 'Grid connection stable - 50.1Hz',
-  },
-];
-
 export default function SystemLogs() {
+  const { activeBlock } = useBlock();
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [stats, setStats] = useState({ errors: 0, warnings: 0, success: 0, total: 0 });
+
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        // Fetch live telemetry data and generate log entries from it
+        const res = await fetch(`http://localhost:5000/api/stats/inverter-telemetry?block=${activeBlock}`);
+        const data = await res.json();
+
+        if (data.status === 'success' && data.data.length > 0) {
+          const generatedLogs: LogEntry[] = [];
+          let errorCount = 0, warningCount = 0, successCount = 0;
+
+          data.data.forEach((inv: any, idx: number) => {
+            const invName = `INV-${idx + 1}`;
+            const now = new Date().toISOString();
+
+            if (inv.temperature > 85) {
+              generatedLogs.push({
+                id: `err-temp-${idx}`,
+                timestamp: now,
+                type: 'error',
+                source: invName,
+                message: `Critical temperature threshold exceeded (${inv.temperature}°C)`
+              });
+              errorCount++;
+            } else if (inv.temperature > 75) {
+              generatedLogs.push({
+                id: `warn-temp-${idx}`,
+                timestamp: now,
+                type: 'warning',
+                source: invName,
+                message: `Temperature trending upward — ${inv.temperature}°C`
+              });
+              warningCount++;
+            }
+
+            if (inv.powerOutput === 0) {
+              generatedLogs.push({
+                id: `err-power-${idx}`,
+                timestamp: now,
+                type: 'error',
+                source: invName,
+                message: `Zero power output detected — inverter may be offline`
+              });
+              errorCount++;
+            } else if (inv.powerOutput < 10) {
+              generatedLogs.push({
+                id: `warn-power-${idx}`,
+                timestamp: now,
+                type: 'warning',
+                source: invName,
+                message: `Low power output: ${inv.powerOutput} kW`
+              });
+              warningCount++;
+            }
+
+            if (inv.health === 'healthy' && inv.powerOutput > 0) {
+              generatedLogs.push({
+                id: `ok-${idx}`,
+                timestamp: now,
+                type: 'success',
+                source: invName,
+                message: `Operating normally — ${inv.powerOutput} kW at ${inv.temperature}°C, efficiency ${inv.efficiency}%`
+              });
+              successCount++;
+            }
+
+            if (inv.voltage > 0 && inv.voltage < 200) {
+              generatedLogs.push({
+                id: `warn-volt-${idx}`,
+                timestamp: now,
+                type: 'warning',
+                source: invName,
+                message: `Low PV voltage detected: ${inv.voltage}V`
+              });
+              warningCount++;
+            }
+          });
+
+          // Sort: errors first, then warnings, then others
+          const typeOrder = { error: 0, warning: 1, info: 2, success: 3 };
+          generatedLogs.sort((a, b) => typeOrder[a.type] - typeOrder[b.type]);
+
+          setLogs(generatedLogs);
+          setStats({
+            errors: errorCount,
+            warnings: warningCount,
+            success: successCount,
+            total: generatedLogs.length
+          });
+        } else {
+          setLogs([]);
+          setStats({ errors: 0, warnings: 0, success: 0, total: 0 });
+        }
+      } catch (err) {
+        console.error('Failed to fetch system logs:', err);
+      }
+    };
+
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 30000);
+    return () => clearInterval(interval);
+  }, [activeBlock]);
+
   const getLogIcon = (type: string) => {
     switch (type) {
       case 'error':
@@ -130,7 +166,9 @@ export default function SystemLogs() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-3xl font-bold mb-2">System Logs</h1>
-        <p className="text-gray-400">Real-time system events and operational logs</p>
+        <p className="text-gray-400">
+          Live telemetry events for {activeBlock === 'All' ? 'All Blocks' : `Block ${activeBlock}`}
+        </p>
       </motion.div>
 
       {/* Stats */}
@@ -146,7 +184,7 @@ export default function SystemLogs() {
             </div>
             <div>
               <p className="text-gray-400 text-xs">Errors</p>
-              <p className="text-2xl font-bold">2</p>
+              <p className="text-2xl font-bold">{stats.errors}</p>
             </div>
           </div>
         </motion.div>
@@ -163,7 +201,7 @@ export default function SystemLogs() {
             </div>
             <div>
               <p className="text-gray-400 text-xs">Warnings</p>
-              <p className="text-2xl font-bold">2</p>
+              <p className="text-2xl font-bold">{stats.warnings}</p>
             </div>
           </div>
         </motion.div>
@@ -179,8 +217,8 @@ export default function SystemLogs() {
               <CheckCircle className="w-5 h-5 text-[#00E676]" />
             </div>
             <div>
-              <p className="text-gray-400 text-xs">Success</p>
-              <p className="text-2xl font-bold">2</p>
+              <p className="text-gray-400 text-xs">Healthy</p>
+              <p className="text-2xl font-bold">{stats.success}</p>
             </div>
           </div>
         </motion.div>
@@ -196,8 +234,8 @@ export default function SystemLogs() {
               <FileText className="w-5 h-5 text-[#1E88E5]" />
             </div>
             <div>
-              <p className="text-gray-400 text-xs">Total Logs</p>
-              <p className="text-2xl font-bold">{logs.length}</p>
+              <p className="text-gray-400 text-xs">Total Events</p>
+              <p className="text-2xl font-bold">{stats.total}</p>
             </div>
           </div>
         </motion.div>
@@ -209,6 +247,13 @@ export default function SystemLogs() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-[#1A1D29] rounded-xl border border-gray-800 overflow-hidden"
       >
+        {logs.length === 0 ? (
+          <div className="p-12 text-center text-gray-500">
+            <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p className="text-lg font-medium">No telemetry events detected</p>
+            <p className="text-sm mt-1">All inverters are operating within normal parameters.</p>
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-[#0E1117] border-b border-gray-800">
@@ -233,11 +278,11 @@ export default function SystemLogs() {
                   key={log.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
+                  transition={{ delay: index * 0.03 }}
                   className={`border-b border-gray-800/50 hover:bg-gradient-to-r ${getLogBg(log.type)} transition-all`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                    {log.timestamp}
+                    {new Date(log.timestamp).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div
@@ -262,17 +307,8 @@ export default function SystemLogs() {
             </tbody>
           </table>
         </div>
+        )}
       </motion.div>
-
-      {/* Export Options */}
-      <div className="flex justify-end gap-3">
-        <button className="px-4 py-2 bg-[#1A1D29] border border-gray-800 hover:border-[#FFC107] rounded-lg text-sm transition-colors">
-          Export as CSV
-        </button>
-        <button className="px-4 py-2 bg-gradient-to-r from-[#FFC107] to-[#FF9800] rounded-lg text-sm font-medium text-[#0E1117] hover:shadow-lg hover:shadow-[#FFC107]/20 transition-all">
-          Download Full Log
-        </button>
-      </div>
     </div>
   );
 }

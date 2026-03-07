@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, TrendingUp } from 'lucide-react';
+import { useBlock } from '../contexts/BlockContext';
 
 interface Prediction {
   inverterId: string;
@@ -9,31 +11,44 @@ interface Prediction {
   topFactors: string[];
 }
 
-const mockPredictions: Prediction[] = [
-  {
-    inverterId: 'INV-1',
-    riskLevel: 'high',
-    probability: 88,
-    predictionWindow: 'Imminent power drop detected',
-    topFactors: ['String 1 Current anomalies (99.3% impact)', 'High operational temperature', 'Low Voltage (V_ab)'],
-  },
-  {
-    inverterId: 'INV-3',
-    riskLevel: 'medium',
-    probability: 45,
-    predictionWindow: 'Efficiency degrading slowly',
-    topFactors: ['Elevated temperature (0.6% impact)', 'Slight voltage deviation'],
-  },
-  {
-    inverterId: 'INV-4',
-    riskLevel: 'low',
-    probability: 12,
-    predictionWindow: 'Operating optimally',
-    topFactors: ['Stable String Current', 'Normal ambient temperature'],
-  },
-];
-
 export default function AIFailurePrediction() {
+  const { activeBlock } = useBlock();
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+
+  useEffect(() => {
+    const fetchPredictions = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/stats/inverter-telemetry?block=${activeBlock}`);
+        const data = await res.json();
+        if (data.status === 'success' && data.data.length > 0) {
+          // Sort by riskScore descending, take top 5
+          const sorted = [...data.data].sort((a: any, b: any) => b.riskScore - a.riskScore).slice(0, 5);
+          const mapped: Prediction[] = sorted.map((inv: any, idx: number) => {
+            const riskLevel = inv.riskScore > 70 ? 'high' : (inv.riskScore > 40 ? 'medium' : 'low');
+            const factors: string[] = [];
+            if (inv.temperature > 75) factors.push(`High temperature: ${inv.temperature}°C`);
+            if (inv.powerOutput < 10) factors.push(`Low power output: ${inv.powerOutput} kW`);
+            if (inv.voltage < 200) factors.push(`Low PV voltage: ${inv.voltage}V`);
+            if (inv.efficiency < 80) factors.push(`Reduced efficiency: ${inv.efficiency}%`);
+            if (factors.length === 0) factors.push('Normal operating parameters');
+
+            return {
+              inverterId: `INV-${idx + 1} (${inv.tableSource})`,
+              riskLevel,
+              probability: inv.riskScore,
+              predictionWindow: riskLevel === 'high' ? 'Immediate attention needed' : (riskLevel === 'medium' ? 'Monitor closely' : 'Operating normally'),
+              topFactors: factors
+            };
+          });
+          setPredictions(mapped);
+        }
+      } catch (err) {
+        console.error('Failed to fetch predictions:', err);
+      }
+    };
+    fetchPredictions();
+  }, [activeBlock]);
+
   const getRiskColor = (level: string) => {
     switch (level) {
       case 'high':
@@ -66,12 +81,15 @@ export default function AIFailurePrediction() {
         <h2 className="text-xl font-bold">AI Failure Predictions</h2>
         <div className="flex items-center gap-2 text-sm text-gray-400">
           <TrendingUp className="w-4 h-4" />
-          <span>Predictive Model v2.1</span>
+          <span>Live Telemetry Analysis</span>
         </div>
       </div>
 
+      {predictions.length === 0 ? (
+        <div className="text-center text-gray-500 py-8">No telemetry data available for predictions.</div>
+      ) : (
       <div className="space-y-4">
-        {mockPredictions.map((prediction, index) => (
+        {predictions.map((prediction, index) => (
           <motion.div
             key={prediction.inverterId}
             initial={{ opacity: 0, x: -20 }}
@@ -89,13 +107,8 @@ export default function AIFailurePrediction() {
               <div className="flex items-center gap-3">
                 {prediction.riskLevel === 'high' && (
                   <motion.div
-                    animate={{
-                      scale: [1, 1.2, 1],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                    }}
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
                   >
                     <AlertTriangle className="w-5 h-5 text-[#FF5252]" />
                   </motion.div>
@@ -126,9 +139,7 @@ export default function AIFailurePrediction() {
                   animate={{ width: `${prediction.probability}%` }}
                   transition={{ duration: 1, delay: index * 0.2 }}
                   className="h-full rounded-full"
-                  style={{
-                    backgroundColor: getRiskColor(prediction.riskLevel),
-                  }}
+                  style={{ backgroundColor: getRiskColor(prediction.riskLevel) }}
                 />
               </div>
             </div>
@@ -157,6 +168,7 @@ export default function AIFailurePrediction() {
           </motion.div>
         ))}
       </div>
+      )}
     </div>
   );
 }

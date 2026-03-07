@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { motion } from 'motion/react';
+import { useBlock } from '../contexts/BlockContext';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -19,6 +20,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function RealTimeCharts() {
+  const { activeBlock } = useBlock();
   const [powerData, setPowerData] = useState<any[]>([]);
   const [voltageData, setVoltageData] = useState<any[]>([]);
   const [temperatureData, setTemperatureData] = useState<any[]>([]);
@@ -26,22 +28,14 @@ export default function RealTimeCharts() {
   useEffect(() => {
     const fetchTelemetry = async () => {
       try {
-        console.log('Fetching telemetry from backend...');
-        const res = await fetch('http://localhost:5000/api/stats/telemetry');
-        console.log('Telemetry response status:', res.status);
+        const res = await fetch(`http://localhost:5000/api/stats/telemetry?block=${activeBlock}`);
         if (res.ok) {
           const json = await res.json();
-          console.log('Telemetry json received:', json);
           if (json.status === 'success') {
             setPowerData(json.data.powerData);
-            console.log('Power Data set:', json.data.powerData);
             setVoltageData(json.data.voltageData);
-            console.log('Voltage Data set:', json.data.voltageData);
             setTemperatureData(json.data.temperatureData);
-            console.log('Temperature Data set:', json.data.temperatureData);
           }
-        } else {
-            console.error('Failed to fetch telemetry. Status:', res.status);
         }
       } catch (err) {
         console.error("Failed to fetch telemetry data:", err);
@@ -49,10 +43,9 @@ export default function RealTimeCharts() {
     };
 
     fetchTelemetry();
-    // Refresh every 30 seconds
     const interval = setInterval(fetchTelemetry, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [activeBlock]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

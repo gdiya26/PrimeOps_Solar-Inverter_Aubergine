@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Clock } from 'lucide-react';
+import { useBlock } from '../contexts/BlockContext';
 
 interface TimelineEvent {
   day: number;
@@ -8,14 +10,45 @@ interface TimelineEvent {
   riskLevel: 'low' | 'medium' | 'high';
 }
 
-const timelineEvents: TimelineEvent[] = [
-  { day: 2, inverterId: 'INV-3', event: 'Efficiency degradation', riskLevel: 'medium' },
-  { day: 4, inverterId: 'INV-1', event: 'String 1 anomaly detected', riskLevel: 'high' },
-  { day: 5, inverterId: 'INV-1', event: 'Predicted power drop', riskLevel: 'high' },
-  { day: 8, inverterId: 'INV-3', event: 'Monitor temperature', riskLevel: 'medium' },
-];
-
 export default function AIPredictiveTimeline() {
+  const { activeBlock } = useBlock();
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+
+  useEffect(() => {
+    const fetchTimeline = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/stats/inverter-telemetry?block=${activeBlock}`);
+        const data = await res.json();
+        if (data.status === 'success' && data.data.length > 0) {
+          // Generate timeline events from high-risk inverters
+          const events: TimelineEvent[] = [];
+          const sorted = [...data.data].sort((a: any, b: any) => b.riskScore - a.riskScore);
+          
+          sorted.forEach((inv: any, idx: number) => {
+            if (inv.riskScore > 50) {
+              events.push({
+                day: Math.min(2 + idx, 9),
+                inverterId: `INV-${inv.inverterIndex + 1}`,
+                event: inv.temperature > 85 ? 'High temperature alert' : (inv.powerOutput < 10 ? 'Low power output' : 'Elevated risk detected'),
+                riskLevel: inv.riskScore > 70 ? 'high' : 'medium'
+              });
+            } else if (inv.riskScore > 30 && events.length < 6) {
+              events.push({
+                day: Math.min(5 + idx, 9),
+                inverterId: `INV-${inv.inverterIndex + 1}`,
+                event: 'Monitor performance trend',
+                riskLevel: 'medium'
+              });
+            }
+          });
+          setTimelineEvents(events.slice(0, 6));
+        }
+      } catch (err) {
+        console.error('Failed to fetch timeline data:', err);
+      }
+    };
+    fetchTimeline();
+  }, [activeBlock]);
   const getRiskColor = (level: string) => {
     switch (level) {
       case 'high':

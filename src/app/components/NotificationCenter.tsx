@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bell, X } from 'lucide-react';
 
 interface Notification {
-  id: number;
+  id: number | string;
   type: 'warning' | 'critical' | 'info';
   title: string;
   message: string;
@@ -11,36 +11,49 @@ interface Notification {
   inverterId?: string;
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: 1,
-    type: 'critical',
-    title: 'Predicted Failure',
-    message: 'Inverter 4 predicted to fail in 8 days',
-    timestamp: '2 min ago',
-    inverterId: 'INV-004',
-  },
-  {
-    id: 2,
-    type: 'warning',
-    title: 'Voltage Instability',
-    message: 'Voltage fluctuations detected',
-    timestamp: '15 min ago',
-    inverterId: 'INV-007',
-  },
-  {
-    id: 3,
-    type: 'warning',
-    title: 'Temperature Alert',
-    message: 'Inverter overheating detected',
-    timestamp: '1 hour ago',
-    inverterId: 'INV-002',
-  },
-];
-
 export default function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/alerts?block=All');
+        const data = await res.json();
+        if (data.status === 'success' && data.data.length > 0) {
+          const mapped = data.data.slice(0, 10).map((alert: any) => ({
+            id: alert.id,
+            type: alert.severity === 'high' ? 'critical' : (alert.severity === 'medium' ? 'warning' : 'info'),
+            title: alert.type || 'System Alert',
+            message: alert.message || 'An alert was triggered.',
+            timestamp: alert.created_at ? new Date(alert.created_at).toLocaleString() : 'Just now',
+            inverterId: alert.inverter_id?.substring(0, 8) || undefined,
+          }));
+          setNotifications(mapped);
+        } else {
+          // Fallback: fetch telemetry-derived alerts
+          const telRes = await fetch('http://localhost:5000/api/alerts/telemetry?block=All');
+          const telData = await telRes.json();
+          if (telData.status === 'success' && telData.data.length > 0) {
+            const mapped = telData.data.slice(0, 10).map((alert: any) => ({
+              id: alert.id,
+              type: alert.severity === 'high' ? 'critical' : (alert.severity === 'medium' ? 'warning' : 'info'),
+              title: alert.type || 'Telemetry Alert',
+              message: alert.message,
+              timestamp: alert.created_at ? new Date(alert.created_at).toLocaleString() : 'Just now',
+              inverterId: alert.inverter_id || undefined,
+            }));
+            setNotifications(mapped);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch alerts:', err);
+      }
+    };
+    fetchAlerts();
+    const interval = setInterval(fetchAlerts, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -53,7 +66,7 @@ export default function NotificationCenter() {
     }
   };
 
-  const removeNotification = (id: number) => {
+  const removeNotification = (id: number | string) => {
     setNotifications(notifications.filter(n => n.id !== id));
   };
 

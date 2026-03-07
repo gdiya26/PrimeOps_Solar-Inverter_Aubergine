@@ -8,4 +8,7 @@ router.get('/', statsController.getDashboardStats);
 // GET /api/stats/telemetry
 router.get('/telemetry', statsController.getTelemetryData);
 
+// GET /api/stats/inverter-telemetry
+router.get('/inverter-telemetry', statsController.getInverterTelemetry);
+
 module.exports = router;

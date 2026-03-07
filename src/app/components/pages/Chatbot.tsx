@@ -13,12 +13,12 @@ interface Message {
 // Dynamic answers fetched via backend API
 
 const suggestedQueries = [
-  "Why is inverter 4 failing?",
-  "Show anomalies in PV voltage",
-  "Which inverter will fail next?",
-  "Summarize today's performance",
-  "What's the overall system health?",
-  "Explain the risk factors",
+  "How many plants are there?",
+  "List all plants",
+  "How many inverters are in plant1_1?",
+  "What is the failure risk for inverter 2 in plant1_1?",
+  "Which inverter has the highest risk?",
+  "How many inverters exist in total?",
 ];
 
 export default function Chatbot() {
@@ -32,6 +32,7 @@ export default function Chatbot() {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -69,12 +70,17 @@ export default function Chatbot() {
       const res = await fetch('http://localhost:5000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: input, history: historyMsg }),
+        body: JSON.stringify({ query: input, history: historyMsg, session_id: sessionId }),
       });
 
       if (!res.ok) throw new Error('Failed to communicate with chat API');
       
       const data = await res.json();
+      
+      // Persist session_id from backend for context tracking
+      if (data.session_id) {
+        setSessionId(data.session_id);
+      }
       
       const aiMessage: Message = {
         id: newMessages.length + 2,

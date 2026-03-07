@@ -8,22 +8,12 @@ interface InverterNode {
   powerOutput: number;
   riskScore: number;
   serial_number?: string;
+  block?: string;
 }
-
-const mockInverters: InverterNode[] = [
-  { id: 1, health: 'healthy', temperature: 45, powerOutput: 98, riskScore: 15 },
-  { id: 2, health: 'warning', temperature: 62, powerOutput: 85, riskScore: 58 },
-  { id: 3, health: 'healthy', temperature: 48, powerOutput: 96, riskScore: 22 },
-  { id: 4, health: 'critical', temperature: 67, powerOutput: 72, riskScore: 82 },
-  { id: 5, health: 'healthy', temperature: 51, powerOutput: 94, riskScore: 18 },
-  { id: 6, health: 'healthy', temperature: 47, powerOutput: 99, riskScore: 12 },
-  { id: 7, health: 'warning', temperature: 59, powerOutput: 88, riskScore: 45 },
-  { id: 8, health: 'healthy', temperature: 49, powerOutput: 97, riskScore: 20 },
-];
 
 export default function SolarPlantVisualization({ 
   onInverterClick,
-  inverters = mockInverters
+  inverters = []
 }: { 
   onInverterClick?: (inverter: InverterNode) => void;
   inverters?: InverterNode[];
@@ -41,9 +31,30 @@ export default function SolarPlantVisualization({
     }
   };
 
+  // Group inverters by block
+  const blockGroups: Record<string, InverterNode[]> = {};
+  inverters.forEach(inv => {
+    const block = (inv as any).block || '?';
+    if (!blockGroups[block]) blockGroups[block] = [];
+    blockGroups[block].push(inv);
+  });
+
+  const blockOrder = ['A', 'B', 'C', 'E', 'F'];
+  const sortedBlocks = Object.keys(blockGroups).sort((a, b) => {
+    const ai = blockOrder.indexOf(a);
+    const bi = blockOrder.indexOf(b);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+
+  // Check if we're viewing a single block or all blocks
+  const isSingleBlock = sortedBlocks.length <= 1;
+
   return (
     <div className="bg-[#1A1D29] rounded-xl p-6 border border-gray-800">
-      <h2 className="text-xl font-bold mb-6">Live Solar Plant Overview</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-bold">Live Solar Plant Overview</h2>
+        <span className="text-sm text-gray-400">{inverters.length} inverters</span>
+      </div>
 
       <div className="relative">
         {/* Flow diagram */}
@@ -62,60 +73,71 @@ export default function SolarPlantVisualization({
           {/* Arrow */}
           <div className="flex-1 h-0.5 bg-gradient-to-r from-[#FFC107] to-transparent mx-4" />
 
-          {/* Inverters Grid */}
+          {/* Inverters — grouped by block */}
           <TooltipProvider>
-            <div className={`grid gap-4 ${inverters.length > 8 ? 'grid-cols-6 sm:grid-cols-4 md:grid-cols-6' : 'grid-cols-4'}`}>
-              {inverters.map((inverter, idx) => (
-                <Tooltip key={inverter.id}>
-                  <TooltipTrigger asChild>
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => onInverterClick?.(inverter)}
-                      className="relative w-16 h-16 rounded-lg flex items-center justify-center cursor-pointer"
-                      style={{
-                        backgroundColor: `${getHealthColor(inverter.health)}20`,
-                        border: `2px solid ${getHealthColor(inverter.health)}`,
-                      }}
-                    >
-                      {/* Pulse animation for critical */}
-                      {inverter.health === 'critical' && (
-                        <motion.div
-                          className="absolute inset-0 rounded-lg"
-                          style={{
-                            border: `2px solid ${getHealthColor(inverter.health)}`,
-                          }}
-                          animate={{
-                            scale: [1, 1.3, 1],
-                            opacity: [0.8, 0, 0.8],
-                          }}
-                          transition={{
-                            duration: 2,
-                            repeat: Infinity,
-                          }}
-                        />
-                      )}
+            <div className="flex-[3]">
+              {sortedBlocks.map((block) => (
+                <div key={block} className="mb-4 last:mb-0">
+                  {!isSingleBlock && (
+                    <p className="text-xs text-gray-500 font-semibold mb-2 uppercase tracking-wider">
+                      Block {block} <span className="text-gray-600">({blockGroups[block].length} inv)</span>
+                    </p>
+                  )}
+                  <div className={`grid gap-3 ${blockGroups[block].length > 8 ? 'grid-cols-6' : blockGroups[block].length > 4 ? 'grid-cols-4' : 'grid-cols-4'}`}>
+                    {blockGroups[block].map((inverter, idx) => (
+                      <Tooltip key={inverter.id}>
+                        <TooltipTrigger asChild>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => onInverterClick?.(inverter)}
+                            className="relative w-14 h-14 rounded-lg flex items-center justify-center cursor-pointer"
+                            style={{
+                              backgroundColor: `${getHealthColor(inverter.health)}20`,
+                              border: `2px solid ${getHealthColor(inverter.health)}`,
+                            }}
+                          >
+                            {/* Pulse animation for critical */}
+                            {inverter.health === 'critical' && (
+                              <motion.div
+                                className="absolute inset-0 rounded-lg"
+                                style={{
+                                  border: `2px solid ${getHealthColor(inverter.health)}`,
+                                }}
+                                animate={{
+                                  scale: [1, 1.3, 1],
+                                  opacity: [0.8, 0, 0.8],
+                                }}
+                                transition={{
+                                  duration: 2,
+                                  repeat: Infinity,
+                                }}
+                              />
+                            )}
 
-                      <span className="text-xs font-bold" style={{ color: getHealthColor(inverter.health) }}>
-                        {idx + 1}
-                      </span>
-                    </motion.button>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    className="bg-[#0E1117] border border-gray-800 rounded-lg p-3 shadow-xl z-50"
-                    sideOffset={5}
-                  >
-                    <div className="text-xs space-y-1">
-                      <p className="font-bold text-white">{inverter.serial_number || `Inverter ${inverter.id}`}</p>
-                      <p className="text-gray-400">Temperature: {inverter.temperature}°C</p>
-                      <p className="text-gray-400">Power: {inverter.powerOutput}%</p>
-                      <p className="text-gray-400">Risk: {inverter.riskScore}%</p>
-                      <p className="font-medium" style={{ color: getHealthColor(inverter.health) }}>
-                        {inverter.health.toUpperCase()}
-                      </p>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
+                            <span className="text-xs font-bold" style={{ color: getHealthColor(inverter.health) }}>
+                              {idx + 1}
+                            </span>
+                          </motion.button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          className="bg-[#0E1117] border border-gray-800 rounded-lg p-3 shadow-xl z-50"
+                          sideOffset={5}
+                        >
+                          <div className="text-xs space-y-1">
+                            <p className="font-bold text-white">{inverter.serial_number || `Inverter ${inverter.id}`}</p>
+                            <p className="text-gray-400">Temperature: {inverter.temperature}°C</p>
+                            <p className="text-gray-400">Power: {inverter.powerOutput} kW</p>
+                            <p className="text-gray-400">Risk: {inverter.riskScore}%</p>
+                            <p className="font-medium" style={{ color: getHealthColor(inverter.health) }}>
+                              {inverter.health.toUpperCase()}
+                            </p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </TooltipProvider>

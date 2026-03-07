@@ -13,10 +13,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Setup Supabase Config
-load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
+env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../backend/.env'))
+load_dotenv(env_path)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY")
 SUPABASE_TABLE = os.getenv("SUPABASE_TABLE", "telemetry") # default table name
 
 MODEL_DIR = os.path.dirname(__file__)

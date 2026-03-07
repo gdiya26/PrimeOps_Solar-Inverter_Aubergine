@@ -105,4 +105,91 @@ const createAlert = async (req, res) => {
     }
 };
 
-module.exports = { getAllAlerts, getCriticalAlerts, createAlert };
+// GET /api/alerts/telemetry — generate alerts from live plantX_Y telemetry anomalies
+const getTelemetryAlerts = async (req, res) => {
+    try {
+        const { getTelemetryTableFromBlock, getAllTelemetryTables } = require('../utils/blockMapper');
+        const { block } = req.query;
+
+        let tablesToQuery = [];
+        if (block && block !== 'All') {
+            const t = getTelemetryTableFromBlock(block);
+            if (t) tablesToQuery = [t];
+        } else {
+            tablesToQuery = getAllTelemetryTables();
+        }
+
+        const alerts = [];
+        for (const table of tablesToQuery) {
+            try {
+                const { data, error } = await supabase
+                    .from(table)
+                    .select('*')
+                    .order('timestamp', { ascending: false })
+                    .limit(1);
+
+                if (error || !data || data.length === 0) continue;
+                const row = data[0];
+                const timestamp = row.timestamp || new Date().toISOString();
+                const powerKeys = Object.keys(row).filter(k => k.match(/^inverters\[\d+\]\.power$/));
+
+                for (let i = 0; i < powerKeys.length; i++) {
+                    const temp = Number(row[`inverters[${i}].temp`] || 0);
+                    const power = Number(row[`inverters[${i}].power`] || 0);
+                    const voltage = Number(row[`inverters[${i}].v_ab`] || 0);
+
+                    if (temp > 85) {
+                        alerts.push({
+                            id: `tel-${table}-temp-${i}`,
+                            severity: 'high',
+                            type: 'Temperature Alert',
+                            message: `Inverter ${i + 1} in ${table}: Critical temperature ${temp}°C`,
+                            created_at: timestamp,
+                            inverter_id: `${table}-inv${i}`
+                        });
+                    } else if (temp > 75) {
+                        alerts.push({
+                            id: `tel-${table}-temp-${i}`,
+                            severity: 'medium',
+                            type: 'Temperature Warning',
+                            message: `Inverter ${i + 1} in ${table}: Temperature ${temp}°C trending high`,
+                            created_at: timestamp,
+                            inverter_id: `${table}-inv${i}`
+                        });
+                    }
+
+                    if (power === 0 && temp > 0) {
+                        alerts.push({
+                            id: `tel-${table}-power-${i}`,
+                            severity: 'high',
+                            type: 'Power Fault',
+                            message: `Inverter ${i + 1} in ${table}: Zero power output detected`,
+                            created_at: timestamp,
+                            inverter_id: `${table}-inv${i}`
+                        });
+                    }
+
+                    if (voltage > 0 && voltage < 200) {
+                        alerts.push({
+                            id: `tel-${table}-volt-${i}`,
+                            severity: 'medium',
+                            type: 'Voltage Warning',
+                            message: `Inverter ${i + 1} in ${table}: Low voltage ${voltage}V`,
+                            created_at: timestamp,
+                            inverter_id: `${table}-inv${i}`
+                        });
+                    }
+                }
+            } catch (e) {
+                continue;
+            }
+        }
+
+        res.status(200).json({ status: 'success', data: alerts });
+    } catch (error) {
+        console.error('Error generating telemetry alerts:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to generate telemetry alerts.' });
+    }
+};
+
+module.exports = { getAllAlerts, getCriticalAlerts, createAlert, getTelemetryAlerts };

@@ -4,7 +4,7 @@ const router = express.Router();
 // Proxy chat endpoint to the Python ML/LLM backend
 router.post('/', async (req, res) => {
     try {
-        const { query, history } = req.body;
+        const { query, history, session_id } = req.body;
         
         if (!query) {
             return res.status(400).json({ status: 'error', message: 'Query is required' });
@@ -13,7 +13,7 @@ router.post('/', async (req, res) => {
         const response = await fetch('http://127.0.0.1:8001/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query, history: history || [] })
+            body: JSON.stringify({ query, history: history || [], session_id: session_id || null })
         });
 
         if (!response.ok) {
@@ -25,7 +25,8 @@ router.post('/', async (req, res) => {
         
         res.status(200).json({
             status: 'success',
-            reply: data.reply
+            reply: data.reply,
+            session_id: data.session_id
         });
     } catch (error) {
         console.error('Error proxying chat request to FastAPI:', error);

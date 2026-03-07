@@ -20,27 +20,17 @@ export default function Dashboard() {
   const [totalPowerDisplay, setTotalPowerDisplay] = useState('—');
   const [inverterNodes, setInverterNodes] = useState<any[]>([]);
 
-  // Simple deterministic hash for mock telemetry
-  const pseudoHash = (str: string) => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return Math.abs(hash);
-  };
-
   const fetchDashboardData = async () => {
     setIsRefreshing(true);
     try {
+      // 1. Fetch dashboard stats
       const statsRes = await fetch(`http://localhost:5000/api/stats?block=${activeBlock}`);
       if (!statsRes.ok) {
-        console.error(`Stats API error: ${statsRes.status} ${statsRes.statusText}`);
         setIsLoading(false);
         setIsRefreshing(false);
         return;
       }
       const statsData = await statsRes.json();
-      console.log('Stats response:', statsData);
       
       if (statsData.status === 'success') {
           const { totalInverters, activeInverters, criticalAlerts: cAlerts, totalPowerToday } = statsData.data;
@@ -48,54 +38,54 @@ export default function Dashboard() {
           setOnlineCount(activeInverters ?? 0);
           setCriticalAlerts(cAlerts ?? 0);
           setTotalPowerDisplay(typeof totalPowerToday === 'number' ? totalPowerToday.toFixed(1) : '0.0');
-      } else {
-        console.warn('Stats endpoint returned non-success, falling back to individual endpoints');
-        const alertsRes = await fetch(`http://localhost:5000/api/alerts/critical?block=${activeBlock}`);
-        const alertsData = await alertsRes.json();
-        if (alertsData.status === 'success') {
-          setCriticalAlerts(alertsData.data.length);
-        }
-        setTotalPowerDisplay('0.0');
       }
 
-      // Always explicitly fetch the specific inverters for visualization mappings
-      const invRes = await fetch(`http://localhost:5000/api/inverters?block=${activeBlock}`);
-      const invData = await invRes.json();
-      if (invData.status === 'success') {
-        const inverters = invData.data;
-        if (statsData.status !== 'success') {
-           setInverterCount(inverters.length);
-           setOnlineCount(inverters.filter((i: any) => i.status?.toLowerCase() === 'online' || i.status?.toLowerCase() === 'active').length);
-        }
+      // 2. Fetch REAL per-inverter telemetry from plantX_Y tables
+      const telRes = await fetch(`http://localhost:5000/api/stats/inverter-telemetry?block=${activeBlock}`);
+      const telData = await telRes.json();
 
-        // Map live DB nodes to visualizer format
-        const mappedNodes = inverters.map((inv: any, idx: number) => {
-          const hash = pseudoHash(inv.id);
-          const risk = hash % 100;
-          let health = 'healthy';
-          if (inv.status === 'offline' || risk > 75) health = 'critical';
-          else if (risk > 40) health = 'warning';
+      if (telData.status === 'success' && telData.data.length > 0) {
+        const mappedNodes = telData.data.map((inv: any) => ({
+          id: `${inv.tableSource}-inv${inv.inverterIndex}`,
+          serial_number: `Block ${inv.block} — INV ${inv.inverterIndex + 1}`,
+          health: inv.health,
+          temperature: inv.temperature,
+          powerOutput: inv.powerOutput,
+          voltage: inv.voltage,
+          efficiency: inv.efficiency,
+          ambientTemp: inv.ambientTemp,
+          riskScore: inv.riskScore,
+          block: inv.block
+        }));
 
-          return {
-            id: inv.id,
-            serial_number: inv.serial_number || `INV-${idx+1}`,
-            health,
-            temperature: 40 + (hash % 35),
-            powerOutput: 50 + (hash % 50),
-            riskScore: risk
-          };
-        });
-        
-        // Sort by critical -> healthy
-        mappedNodes.sort((a: any, b: any) => {
-          const w = { critical: 3, warning: 2, healthy: 1 };
-          return w[b.health as keyof typeof w] - w[a.health as keyof typeof w];
-        });
-        
         setInverterNodes(mappedNodes);
+        // Use telemetry count as the real inverter count
+        setInverterCount(mappedNodes.length);
+        setOnlineCount(mappedNodes.length);
+      } else {
+        // Fallback: fetch structural inverter data if telemetry is unavailable
+        const invRes = await fetch(`http://localhost:5000/api/inverters?block=${activeBlock}`);
+        const invData = await invRes.json();
+        if (invData.status === 'success') {
+          const inverters = invData.data;
+          setInverterCount(inverters.length);
+          setOnlineCount(inverters.filter((i: any) => i.status?.toLowerCase() === 'online' || i.status?.toLowerCase() === 'active').length);
+          const mappedNodes = inverters.map((inv: any, idx: number) => ({
+            id: inv.id,
+            serial_number: inv.serial_number || `INV-${idx + 1}`,
+            health: inv.status === 'offline' ? 'critical' : 'healthy',
+            temperature: 0,
+            powerOutput: 0,
+            voltage: 0,
+            efficiency: 0,
+            ambientTemp: 0,
+            riskScore: inv.status === 'offline' ? 75 : 10
+          }));
+          setInverterNodes(mappedNodes);
+        }
       }
     } catch (error) {
-      console.error("Failed to fetch dashboard metrics from backend. Is the backend server running on port 5000?", error);
+      console.error("Failed to fetch dashboard metrics from backend.", error);
     }
     setIsLoading(false);
     setIsRefreshing(false);
@@ -266,7 +256,7 @@ export default function Dashboard() {
 
                   <div className="bg-[#0E1117] rounded-lg p-4">
                     <p className="text-sm text-gray-400 mb-1">Power Output</p>
-                    <p className="text-2xl font-bold">{selectedInverter.powerOutput}%</p>
+                    <p className="text-2xl font-bold">{selectedInverter.powerOutput} kW</p>
                   </div>
 
                   <div className="bg-[#0E1117] rounded-lg p-4">
@@ -295,23 +285,19 @@ export default function Dashboard() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-400">PV Voltage:</span>
-                      <span className="text-white">580V</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">AC Output:</span>
-                      <span className="text-white">415V</span>
+                      <span className="text-white">{selectedInverter.voltage ?? '—'}V</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Efficiency:</span>
-                      <span className="text-white">97.2%</span>
+                      <span className="text-white">{selectedInverter.efficiency ?? '—'}%</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Grid Frequency:</span>
-                      <span className="text-white">50.1Hz</span>
+                      <span className="text-gray-400">Ambient Temp:</span>
+                      <span className="text-white">{selectedInverter.ambientTemp ?? '—'}°C</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Uptime:</span>
-                      <span className="text-white">99.8%</span>
+                      <span className="text-gray-400">Power Output:</span>
+                      <span className="text-white">{selectedInverter.powerOutput ?? '—'} kW</span>
                     </div>
                   </div>
                 </div>
