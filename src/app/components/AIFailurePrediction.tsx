@@ -11,25 +11,25 @@ interface Prediction {
 
 const mockPredictions: Prediction[] = [
   {
-    inverterId: 'INV-004',
+    inverterId: 'INV-1',
     riskLevel: 'high',
-    probability: 82,
-    predictionWindow: 'Possible shutdown within 7 days',
-    topFactors: ['High temperature (67°C)', 'Unstable PV voltage', 'Efficiency drop'],
+    probability: 88,
+    predictionWindow: 'Imminent power drop detected',
+    topFactors: ['String 1 Current anomalies (99.3% impact)', 'High operational temperature', 'Low Voltage (V_ab)'],
   },
   {
-    inverterId: 'INV-002',
-    riskLevel: 'medium',
-    probability: 58,
-    predictionWindow: 'Monitor for next 14 days',
-    topFactors: ['Elevated temperature (62°C)', 'Slight voltage fluctuation'],
-  },
-  {
-    inverterId: 'INV-007',
+    inverterId: 'INV-3',
     riskLevel: 'medium',
     probability: 45,
-    predictionWindow: 'Low risk in short term',
-    topFactors: ['Temperature trending up', 'Normal voltage patterns'],
+    predictionWindow: 'Efficiency degrading slowly',
+    topFactors: ['Elevated temperature (0.6% impact)', 'Slight voltage deviation'],
+  },
+  {
+    inverterId: 'INV-4',
+    riskLevel: 'low',
+    probability: 12,
+    predictionWindow: 'Operating optimally',
+    topFactors: ['Stable String Current', 'Normal ambient temperature'],
   },
 ];
 

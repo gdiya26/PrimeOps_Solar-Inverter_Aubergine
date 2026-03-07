@@ -3,11 +3,10 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Lightbulb } from 'lucide-react';
 
 const shapData = [
-  { factor: 'Temperature', impact: 0.35, positive: false },
-  { factor: 'PV Voltage', impact: 0.28, positive: false },
-  { factor: 'Efficiency', impact: 0.18, positive: false },
-  { factor: 'Grid Frequency', impact: 0.12, positive: false },
-  { factor: 'Age', impact: 0.07, positive: false },
+  { factor: 'String 1 Current', impact: 0.993, positive: false },
+  { factor: 'Temperature', impact: 0.006, positive: false },
+  { factor: 'Voltage V_ab', impact: 0.001, positive: false },
+  { factor: 'Ambient Temp', impact: 0.000, positive: false },
 ];
 
 const CustomTooltip = ({ active, payload }: any) => {
@@ -16,7 +15,7 @@ const CustomTooltip = ({ active, payload }: any) => {
       <div className="bg-[#0E1117] border border-gray-800 rounded-lg p-3 shadow-xl">
         <p className="text-sm font-medium text-white">{payload[0].payload.factor}</p>
         <p className="text-xs text-gray-400">
-          Impact: {(payload[0].value * 100).toFixed(1)}%
+          Impact: {(payload[0].value * 100).toFixed(2)}%
         </p>
       </div>
     );
@@ -33,7 +32,7 @@ export default function AIDiagnosticInsights() {
         </div>
         <div>
           <h2 className="text-xl font-bold">AI Diagnostic Insights</h2>
-          <p className="text-sm text-gray-400">SHAP Analysis for Inverter 4</p>
+          <p className="text-sm text-gray-400">Feature Importance from Power Output Random Forest Model</p>
         </div>
       </div>
 
@@ -44,10 +43,8 @@ export default function AIDiagnosticInsights() {
         className="bg-gradient-to-r from-[#FF5252]/10 to-transparent border-l-4 border-[#FF5252] rounded-lg p-4 mb-6"
       >
         <p className="text-sm leading-relaxed">
-          <span className="font-bold text-[#FF5252]">Critical Analysis:</span> Inverter 4 shows elevated failure risk due to{' '}
-          <span className="text-[#FFC107] font-medium">rising internal temperature</span> (67°C, 15°C above optimal) and{' '}
-          <span className="text-[#FFC107] font-medium">unstable PV voltage patterns</span> with fluctuations exceeding 8% variance.
-          The combined effect of these factors increases failure probability to 82%.
+          <span className="font-bold text-[#FF5252]">Critical Analysis:</span> The Random Forest Regression model identified that{' '}
+          <span className="text-[#FFC107] font-medium">String 1 Current anomalies</span> have an overwhelming 99.3% contribution to the drops in power output. Temperature and Voltage fluctuations contribute minimally.
         </p>
       </motion.div>
 
@@ -65,9 +62,9 @@ export default function AIDiagnosticInsights() {
                 <Cell
                   key={`cell-${index}`}
                   fill={
-                    index === 0 || index === 1
+                    index === 0
                       ? '#FF5252'
-                      : index === 2
+                      : index === 1
                       ? '#FFC107'
                       : '#1E88E5'
                   }
@@ -82,10 +79,10 @@ export default function AIDiagnosticInsights() {
       <div className="space-y-3">
         <h3 className="text-sm font-bold text-gray-400">Recommended Actions</h3>
         {[
-          'Schedule immediate thermal inspection for Inverter 4',
-          'Check cooling system and ventilation',
-          'Monitor voltage stability over next 48 hours',
-          'Consider preventive maintenance before predicted failure window',
+          'Schedule immediate inspection of String 1 connections on INV-1',
+          'Deploy field team to investigate potential shading on String 1',
+          'Monitor overall plant voltage for cascading impact',
+          'Optimize inverter MPPT sweeps to compensate for string unbalance'
         ].map((recommendation, index) => (
           <motion.div
             key={index}

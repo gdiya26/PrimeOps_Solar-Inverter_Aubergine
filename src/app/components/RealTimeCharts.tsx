@@ -1,38 +1,6 @@
+import { useState, useEffect } from 'react';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { motion } from 'motion/react';
-
-const powerData = [
-  { time: '00:00', power: 0 },
-  { time: '06:00', power: 120 },
-  { time: '08:00', power: 580 },
-  { time: '10:00', power: 920 },
-  { time: '12:00', power: 1200 },
-  { time: '14:00', power: 1150 },
-  { time: '16:00', power: 850 },
-  { time: '18:00', power: 380 },
-  { time: '20:00', power: 50 },
-  { time: '22:00', power: 0 },
-];
-
-const voltageData = [
-  { time: '10:00', inv1: 580, inv2: 575, inv3: 582, inv4: 540 },
-  { time: '11:00', inv1: 585, inv2: 578, inv3: 580, inv4: 535 },
-  { time: '12:00', inv1: 590, inv2: 582, inv3: 588, inv4: 520 },
-  { time: '13:00', inv1: 588, inv2: 580, inv3: 585, inv4: 510 },
-  { time: '14:00', inv1: 592, inv2: 585, inv3: 590, inv4: 525 },
-  { time: '15:00', inv1: 587, inv2: 583, inv3: 586, inv4: 515 },
-];
-
-const temperatureData = [
-  { inverter: 'INV-1', temp: 45, status: 'normal' },
-  { inverter: 'INV-2', temp: 62, status: 'warning' },
-  { inverter: 'INV-3', temp: 48, status: 'normal' },
-  { inverter: 'INV-4', temp: 67, status: 'critical' },
-  { inverter: 'INV-5', temp: 51, status: 'normal' },
-  { inverter: 'INV-6', temp: 47, status: 'normal' },
-  { inverter: 'INV-7', temp: 59, status: 'warning' },
-  { inverter: 'INV-8', temp: 49, status: 'normal' },
-];
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -51,6 +19,41 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function RealTimeCharts() {
+  const [powerData, setPowerData] = useState<any[]>([]);
+  const [voltageData, setVoltageData] = useState<any[]>([]);
+  const [temperatureData, setTemperatureData] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchTelemetry = async () => {
+      try {
+        console.log('Fetching telemetry from backend...');
+        const res = await fetch('http://localhost:5000/api/stats/telemetry');
+        console.log('Telemetry response status:', res.status);
+        if (res.ok) {
+          const json = await res.json();
+          console.log('Telemetry json received:', json);
+          if (json.status === 'success') {
+            setPowerData(json.data.powerData);
+            console.log('Power Data set:', json.data.powerData);
+            setVoltageData(json.data.voltageData);
+            console.log('Voltage Data set:', json.data.voltageData);
+            setTemperatureData(json.data.temperatureData);
+            console.log('Temperature Data set:', json.data.temperatureData);
+          }
+        } else {
+            console.error('Failed to fetch telemetry. Status:', res.status);
+        }
+      } catch (err) {
+        console.error("Failed to fetch telemetry data:", err);
+      }
+    };
+
+    fetchTelemetry();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchTelemetry, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Power Output Trend */}
@@ -61,8 +64,9 @@ export default function RealTimeCharts() {
         className="bg-[#1A1D29] rounded-xl p-6 border border-gray-800"
       >
         <h3 className="text-lg font-bold mb-4">Power Output Trend</h3>
-        <ResponsiveContainer width="100%" height={250}>
-          <AreaChart data={powerData}>
+        <div style={{ width: '100%', height: 250 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={powerData}>
             <defs>
               <linearGradient id="powerGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#1E88E5" stopOpacity={0.8}/>
@@ -81,8 +85,9 @@ export default function RealTimeCharts() {
               fill="url(#powerGradient)"
               animationDuration={1500}
             />
-          </AreaChart>
-        </ResponsiveContainer>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       </motion.div>
 
       {/* PV Voltage Stability */}

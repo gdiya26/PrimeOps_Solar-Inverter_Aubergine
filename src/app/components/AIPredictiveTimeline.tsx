@@ -9,10 +9,10 @@ interface TimelineEvent {
 }
 
 const timelineEvents: TimelineEvent[] = [
-  { day: 3, inverterId: 'INV-002', event: 'Risk trending upward', riskLevel: 'medium' },
-  { day: 5, inverterId: 'INV-004', event: 'High failure probability', riskLevel: 'high' },
-  { day: 7, inverterId: 'INV-004', event: 'Predicted fault', riskLevel: 'high' },
-  { day: 9, inverterId: 'INV-007', event: 'Monitor temperature', riskLevel: 'medium' },
+  { day: 2, inverterId: 'INV-3', event: 'Efficiency degradation', riskLevel: 'medium' },
+  { day: 4, inverterId: 'INV-1', event: 'String 1 anomaly detected', riskLevel: 'high' },
+  { day: 5, inverterId: 'INV-1', event: 'Predicted power drop', riskLevel: 'high' },
+  { day: 8, inverterId: 'INV-3', event: 'Monitor temperature', riskLevel: 'medium' },
 ];
 
 export default function AIPredictiveTimeline() {
