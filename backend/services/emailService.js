@@ -1,38 +1,34 @@
+require('dotenv').config();
 const nodemailer = require('nodemailer');
 
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
 const sendAlertEmail = async (alerts) => {
+    if (!alerts || alerts.length === 0) {
+        console.log('No alerts to send.');
+        return;
+    }
+
+    const alertDetails = alerts.map((alert, index) =>
+        `${index + 1}. [${alert.severity.toUpperCase()}] ${alert.type} - ${alert.message} (Inverter ID: ${alert.inverter_id || 'Unknown'})`
+    ).join('\n');
+
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: process.env.EMAIL_RECIPIENT,
+        subject: 'Daily Solar Inverter Alerts',
+        text: `Here are the latest solar inverter alerts:\n\n${alertDetails}\n\nPlease review these issues in the dashboard.\n\nSolar Monitoring System`
+    };
+
     try {
-        if (!alerts || alerts.length === 0) {
-            console.log('No alerts to send.');
-            return;
-        }
-
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
-
-        let emailText = 'The following alerts were generated:\n\n';
-        alerts.forEach((alert, index) => {
-            emailText += `--- Alert ${index + 1} ---\n`;
-            for (const [key, value] of Object.entries(alert)) {
-                emailText += `${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}\n`;
-            }
-            emailText += '\n';
-        });
-
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: process.env.EMAIL_RECIPIENT,
-            subject: 'Daily Solar Inverter Alerts',
-            text: emailText
-        };
-
         const info = await transporter.sendMail(mailOptions);
-        console.log('Alert email sent successfully:', info.response);
+        console.log('Alert email sent successfully: %s', info.messageId);
         return info;
     } catch (error) {
         console.error('Error sending alert email:', error);

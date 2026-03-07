@@ -1,0 +1,4 @@
+{
+  "INV1": "### Inverter 1 Failure Risk in plant1_1\nThe inverter 1 in plant1_1 is **FAILING SOON** with a risk probability of **56.28%**. This prediction is primarily due to the high temperature of the inverter, specifically **inverters_0_temp**, which is currently at **74.3** degrees. \n\nWe recommend checking the inverter's cooling system to ensure it's functioning properly to prevent overheating.",
+  "INV2": "### Inverter 2 Failure Risk in plant1_1\nThe inverter 2 in plant1_1 is currently **FAILING SOON** with a risk probability of **56.28%**. This prediction is primarily due to the high temperature of the inverter, specifically **inverters_0_temp**, which is a key factor contributing to the potential failure. \n\nWe recommend that you **check and ensure the inverter's cooling system is functioning properly** to mitigate this risk."
+}
